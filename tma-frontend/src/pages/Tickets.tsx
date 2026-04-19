@@ -54,9 +54,21 @@ export default function Tickets() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-white">
+      {/* Navbar */}
+      <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-8 h-8 text-blue-900" />
+            <span className="font-semibold text-xl text-gray-900">TMA System</span>
+          </div>
+          <a href="/" className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors">
+            Accueil
+          </a>
+        </div>
+      </nav>
       
       {/* ============ HERO SECTION ============ */}
-      <div className="bg-gradient-to-b from-gray-100 to-gray-50 py-20 px-4">
+      <div className="bg-gradient-to-b from-gray-100 to-gray-50 py-8 lg:py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-medium text-gray-500 mb-4 flex items-center justify-center gap-2">
             <User size={16} />
