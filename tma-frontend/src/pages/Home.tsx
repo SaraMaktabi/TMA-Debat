@@ -78,12 +78,26 @@ export default function Home() {
             <Bot className="w-8 h-8 text-blue-900" />
             <span className="font-semibold text-xl text-gray-900">TMA System</span>
           </div>
-          <Link
-            to="/tickets"
-            className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
-          >
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/tickets"
+              className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              Dashboard
+            </Link>
+            <Link 
+              to="/login"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg transition-colors"
+            >
+              Se connecter
+            </Link>
+            <Link 
+              to="/signup"
+              className="px-4 py-2 text-sm font-medium bg-blue-900 text-white hover:bg-blue-950 rounded-lg transition-colors"
+            >
+              S'inscrire
+            </Link>
+          </div>
         </div>
       </nav>
 

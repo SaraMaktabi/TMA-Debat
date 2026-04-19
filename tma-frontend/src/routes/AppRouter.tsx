@@ -4,6 +4,8 @@ import Tickets from "../pages/Tickets";
 import TicketDetails from "../pages/TicketDetails";
 import Debate from "../pages/Debate";
 import Dashboard from "../pages/Dashboard";
+import Login from "../pages/Login";
+import SignUp from "../pages/SignUp";
 
 export default function AppRouter() {
   return (
@@ -14,6 +16,8 @@ export default function AppRouter() {
         <Route path="/ticket/:id" element={<TicketDetails />} />
         <Route path="/debat/:id" element={<Debate />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
       </Routes>
     </BrowserRouter>
   );
