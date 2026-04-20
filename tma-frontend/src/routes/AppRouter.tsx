@@ -6,12 +6,14 @@ import Debate from "../pages/Debate";
 import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import SignUp from "../pages/SignUp";
+import Demo from "../pages/Demo";
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/demo" element={<Demo />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/ticket/:id" element={<TicketDetails />} />
         <Route path="/debat/:id" element={<Debate />} />
