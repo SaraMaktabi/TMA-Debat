@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Plus, Search, AlertCircle, CheckCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
+import Swal from "sweetalert2";
 
 export default function Tickets() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -38,6 +39,15 @@ export default function Tickets() {
         description,
       });
 
+      // Show success message with SweetAlert
+      Swal.fire({
+        icon: "success",
+        title: "Ticket créé avec succès!",
+        text: "Votre ticket de support a été créé et enregistré dans la base de données.",
+        confirmButtonColor: "#001f3f",
+        confirmButtonText: "OK",
+      });
+
       setCompanyName("");
       setEmail("");
       setTitle("");
@@ -47,6 +57,14 @@ export default function Tickets() {
       setActiveTab("track");
 
       fetchTickets();
+    } catch (error) {
+      // Show error message
+      Swal.fire({
+        icon: "error",
+        title: "Erreur!",
+        text: "Une erreur s'est produite lors de la création du ticket.",
+        confirmButtonColor: "#001f3f",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -258,10 +276,32 @@ export default function Tickets() {
       {/* ============ LIST SECTION ============ */}
       {activeTab === "track" && (
         <div className="py-12 px-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             
+            {/* Header Section */}
+            <div className="text-center mb-12">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Search size={32} className="text-gray-600" />
+              </div>
+              <h2 className="text-4xl font-bold text-gray-900 mb-3">Your Support Tickets</h2>
+              <p className="text-gray-600 text-lg">Track the progress of your requests</p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-12 flex justify-center">
+              <div className="relative w-full max-w-2xl">
+                <Search className="absolute left-4 top-4 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Enter Ticket ID or Email..."
+                  className="w-full pl-12 pr-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Tickets List */}
             {tickets.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-lg">
+              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Clock size={32} className="text-gray-400" />
                 </div>
@@ -269,59 +309,100 @@ export default function Tickets() {
                 <p className="text-gray-600 mt-2">Vous n'avez pas encore créé de ticket de support.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {tickets.map((t) => (
-                  <div
-                    key={t.id}
-                    className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all"
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <FileText size={18} className="text-gray-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 text-lg">{t.title}</h3>
-                            <p className="text-gray-600 mt-1 text-sm">{t.description}</p>
-                            <div className="flex gap-4 mt-3 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <User size={14} />
-                                {t.companyName}
+              <div className="space-y-6">
+                {tickets.map((t, index) => {
+                  const ticketId = `TK-${String(index + 1).padStart(3, '0')}`;
+                  const statusMap: { [key: string]: { label: string; color: string } } = {
+                    high: { label: "High", color: "bg-red-100 text-red-700" },
+                    medium: { label: "Medium", color: "bg-yellow-100 text-yellow-700" },
+                    low: { label: "Low", color: "bg-green-100 text-green-700" }
+                  };
+                  
+                  const status = statusMap[t.urgency] || statusMap.medium;
+                  
+                  return (
+                    <div
+                      key={t.id}
+                      className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all"
+                    >
+                      {/* Card Header */}
+                      <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-mono font-bold bg-gray-100 px-3 py-1 rounded text-gray-700">
+                              {ticketId}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                                t.urgency === "high" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
+                              }`}>
+                                ● {t.urgency === "high" ? "Open" : t.urgency === "medium" ? "In Progress" : "Resolved"}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <Mail size={14} />
-                                {t.email}
+                              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${status.color}`}>
+                                {status.label}
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex-shrink-0">
-                        <span
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1 ${
-                            t.urgency === "high"
-                              ? "bg-red-100 text-red-700"
-                              : t.urgency === "medium"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {t.urgency === "high"
-                            ? <AlertCircle size={14} />
-                            : t.urgency === "medium"
-                            ? <Clock size={14} />
-                            : <CheckCircle size={14} />}
-                          {t.urgency === "high"
-                            ? "Élevé"
-                            : t.urgency === "medium"
-                            ? "Moyen"
-                            : "Faible"}
-                        </span>
+
+                      {/* Card Content */}
+                      <div className="px-6 py-6 space-y-4 text-left">
+                        {/* Title */}
+                        <h3 className="text-xl font-bold text-gray-900 text-left">{t.title}</h3>
+                        
+                        {/* Description */}
+                        <p className="text-gray-600 text-sm leading-relaxed text-left">{t.description}</p>
+
+                        {/* Meta Information */}
+                        <div className="flex flex-wrap items-center gap-8 py-4 border-t border-b border-gray-200 text-sm text-left">
+                          <div className="flex items-center gap-2">
+                            <Clock size={16} className="text-gray-400" />
+                            <span className="text-gray-500">Created:</span>
+                            <span className="text-gray-900 font-medium">
+                              {t.created_at ? new Date(t.created_at).toLocaleDateString("de-DE") + " " + new Date(t.created_at).toLocaleTimeString("de-DE", { 
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              }) : "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <User size={16} className="text-gray-400" />
+                            <span className="text-gray-500">Assignee:</span>
+                            <span className="text-gray-900 font-medium">{t.company_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Mail size={16} className="text-gray-400" />
+                            <span className="text-gray-500">Email:</span>
+                            <span className="text-blue-600 font-medium">{t.email}</span>
+                          </div>
+                        </div>
+
+                        {/* AI Solution Suggestion */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 text-left">
+                          <Zap size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-left">
+                            <p className="font-semibold text-gray-900 text-sm">AI Solution Suggestion</p>
+                            <p className="text-gray-600 text-xs mt-1">
+                              {t.urgency === "high" 
+                                ? "Priority issue detected. Recommend immediate investigation of system resources and error logs."
+                                : t.urgency === "medium"
+                                ? "Standard processing: Review configuration and recent changes. Automated workflow initiated."
+                                : "Low priority: Schedule maintenance check and document findings for reference."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Category Badge */}
+                        <div className="pt-2 text-left">
+                          <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">
+                            {t.category}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
