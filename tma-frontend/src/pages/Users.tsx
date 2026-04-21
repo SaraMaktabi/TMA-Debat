@@ -164,9 +164,9 @@ export default function Users() {
   };
 
   const menuItems = [
-    { icon: Home, label: "Accueil", href: "/dashboard", badge: null },
-    { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: "Pro" },
-    { icon: AlertCircle, label: "Tickets", href: "/tickets", badge: "42" },
+    { icon: Home, label: "Accueil", href: "/", badge: null },
+    { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
+    // { icon: AlertCircle, label: "Tickets", href: "/tickets", badge: tickets.length.toString() },
     { icon: UsersIcon, label: "Utilisateurs", href: "/users", badge: null },
     { icon: Settings, label: "Paramètres", href: "#", badge: null },
   ];
@@ -185,12 +185,12 @@ export default function Users() {
         {/* Logo Section - Light */}
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
           <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all duration-300">
-            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-md group-hover:shadow-purple-300/50 transition-all duration-300">
+            <div className="p-2.5 rounded-xl shadow-md group-hover:shadow-gray-400/50 transition-all duration-300" style={{backgroundColor: '#08052e'}}>
               <Bot className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-lg text-gray-900">TMA System</span>
-              <span className="text-xs text-blue-600 font-semibold">Pro Edition</span>
+        
             </div>
           </Link>
         </div>
@@ -209,7 +209,7 @@ export default function Users() {
                 <Icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-300 relative z-10" />
                 <span className="text-sm font-semibold relative z-10">{item.label}</span>
                 {item.badge && (
-                  <span className="ml-auto px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md relative z-10">
+                  <span className="ml-auto px-2.5 py-1 text-xs font-bold rounded-full text-white shadow-md relative z-10" style={{backgroundColor: '#08052e'}}>
                     {item.badge}
                   </span>
                 )}
@@ -221,36 +221,20 @@ export default function Users() {
         {/* Divider */}
         <div className="mx-4 my-6 h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent"></div>
 
-        {/* Quick Stats */}
-        <div className="px-4 space-y-2">
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider ml-2">Stats Rapides</p>
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600">Users Actifs</span>
-                <span className="text-lg font-bold text-blue-600">{users.filter((u) => u.status === "Active").length}</span>
-              </div>
-              <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" style={{ width: `${(users.filter((u) => u.status === "Active").length / users.length) * 100}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* User Profile Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gradient-to-t from-blue-50/50 to-transparent">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200 mb-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
+          <div className="rounded-xl p-4 border border-gray-200 mb-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+              <div className="w-10 h-10 rounded-xl text-white font-bold shadow-md flex items-center justify-center" style={{backgroundColor: '#0f0745'}}>
                 JD
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                <p className="text-xs text-blue-600 font-medium">Admin</p>
+                <p className="text-xs font-medium" style={{color: '#0f0745'}}>Admin</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
+              <button className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg text-white transition-all duration-200 hover:opacity-90" style={{backgroundColor: '#0f0745'}}>
                 Profile
               </button>
               <button className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200">
@@ -272,7 +256,7 @@ export default function Users() {
               </h1>
               <p className="text-sm text-gray-600 mt-1">Gestion complète des utilisateurs du système</p>
             </div>
-            <button className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2">
+            <button className="px-4 py-2.5 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:opacity-90 flex items-center gap-2" style={{backgroundColor: '#08052e'}}>
               <Plus className="w-5 h-5" />
               Add New User
             </button>
@@ -293,7 +277,7 @@ export default function Users() {
                       <Icon className={`w-5 h-5 ${stat.textColor} group-hover:scale-110 transition-transform duration-300`} />
                     </div>
                   </div>
-                  <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">{stat.value}</h3>
+                  <h3 className="text-3xl font-bold text-black mb-2">{stat.value}</h3>
                   <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors">Total en système</p>
                 </div>
               );
@@ -370,7 +354,7 @@ export default function Users() {
                       {/* User Info */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md" style={{backgroundColor: '#08052e'}}>
                             {user.name
                               .split(" ")
                               .map((n) => n[0])
