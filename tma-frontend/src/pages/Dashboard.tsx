@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bot, BarChart3, Users, AlertCircle, CheckCircle, Clock, TrendingUp, Home, Settings, LogOut, Layout, List, MessageSquare, Clock3, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<"list" | "cards">("cards");
 
   const stats = [
@@ -243,7 +244,8 @@ export default function Dashboard() {
                   return (
                     <div
                       key={index}
-                      className="bg-white border border-gray-200 rounded-lg p-6 transition-all duration-300"
+                      onClick={() => navigate(`/ticket/${ticket.id}`)}
+                      className="bg-white border border-gray-200 rounded-lg p-6 transition-all duration-300 cursor-pointer hover:shadow-md hover:border-gray-300"
                     >
                       {/* Top Row: Status and Priority */}
                       <div className="flex items-center justify-between gap-3 mb-3">
@@ -265,12 +267,15 @@ export default function Dashboard() {
                       {/* Bottom Row: Date and View Analysis */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <span className="text-xs text-gray-500 text-left">{ticket.date}</span>
-                        <Link
-                          to={`/tickets/${ticket.id}`}
-                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/ticket/${ticket.id}`);
+                          }}
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors cursor-pointer"
                         >
                           View Analysis
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   );
