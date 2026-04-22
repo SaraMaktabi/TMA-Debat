@@ -1,31 +1,27 @@
 import sys
 from pathlib import Path
 
-# Ajouter le dossier parent (app/) au chemin Python
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Ajouter le dossier PARENT de app (la racine du projet)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-# Importer les modèles
-from database import Base
-from core.config import config as app_config
-from models.ticket import Ticket
-from models.technicien import Technicien
-from models.debat_temp import DebatTemp
+# Maintenant on peut importer avec "app."
+from app.database import Base
+from app.core.config import config as app_config
+from app.models.ticket import Ticket
+from app.models.technicien import Technicien
+from app.models.debat_temp import DebatTemp
 
-# Alembic config
 config = context.config
 
-# Configurer le logging
 if config.config_file_name:
     fileConfig(config.config_file_name)
 
-# URL de la base (depuis .env)
 config.set_main_option("sqlalchemy.url", app_config.DATABASE_URL)
 
-# Metadata
 target_metadata = Base.metadata
 
 def run_migrations_offline():

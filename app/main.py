@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.routers import tickets_router
 from sqlalchemy import text
+from app.routers import debat
+
+
 
 app = FastAPI(title="TMA-Debat API")
 
@@ -16,6 +19,8 @@ app.add_middleware(
 
 # Inclure les routes
 app.include_router(tickets_router, prefix="/api/tickets", tags=["tickets"])
+
+app.include_router(debat.router, prefix="/api/debat", tags=["debat"])
 
 @app.get("/")
 def root():
