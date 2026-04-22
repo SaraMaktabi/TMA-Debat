@@ -93,7 +93,7 @@ export default function Home() {
             </Link>
             <Link 
               to="/signup"
-              className="px-4 py-2 text-sm font-medium bg-blue-900 text-white hover:bg-blue-950 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-[#08052e] text-white hover:bg-[#0f0745] rounded-lg transition-colors"
             >
               S'inscrire
             </Link>
@@ -122,8 +122,8 @@ export default function Home() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 flex-wrap">
             <Link
-              to="/tickets"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 text-lg font-semibold bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-all duration-200 shadow-lg"
+              to="/demo"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 text-lg font-semibold bg-[#08052e] text-white rounded-lg hover:bg-[#0f0745] transition-all duration-200 shadow-lg"
             >
               <Bot className="w-5 h-5" />
               Démarrer la gestion des tickets
@@ -225,7 +225,7 @@ export default function Home() {
             <div className="flex gap-4 pt-4">
               <Link
                 to="/tickets"
-                className="px-6 py-3 bg-blue-900 text-white rounded-lg font-semibold hover:bg-blue-950 transition-all duration-200 flex items-center gap-2 shadow-lg"
+                className="px-6 py-3 bg-[#08052e] text-white rounded-lg font-semibold hover:bg-[#0f0745] transition-all duration-200 flex items-center gap-2 shadow-lg"
               >
                 <ArrowRight className="w-5 h-5" />
                Voir tickets
