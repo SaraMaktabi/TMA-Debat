@@ -1,4 +1,3 @@
-
 from openai import OpenAI
 import json
 from app.core.config import config
@@ -6,64 +5,59 @@ from app.core.config import config
 client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 async def analyser_technologies(titre: str, description: str) -> dict:
-    """
-    Extrait les technologies, type d'incident et urgence d'un ticket
-    Utilise GPT-4o-mini pour l'analyse NLP
-    """
-    
     prompt = f"""
-    Analyse ce ticket d'incident et extrait les informations techniques.
+    Analyse ce ticket d'incident et extrais les informations techniques.
     
     TITRE: {titre}
     DESCRIPTION: {description}
     
-    Réponds UNIQUEMENT au format JSON (sans texte avant ou après):
-    {{
-        "technologies": ["Python", "PostgreSQL", "Docker"],
-        "type_incident": "bug|performance|securite|donnees|autre",
-        "systemes_impactes": ["API", "base de données", "frontend"],
-        "urgence_percue": "basse|moyenne|haute|critique",
-        "mots_cles": ["crash", "timeout", "erreur"]
-    }}
+    EXTRACTION DES TECHNOLOGIES - Sois précis:
+    - Si ticket parle d'interface, frontend, thème, CSS, React, Vue, Angular → technologies: ["Frontend", "React"] (ou la technologie mentionnée)
+    - Si ticket parle de base de données, SQL, PostgreSQL → technologies: ["PostgreSQL", "SQL"]
+    - Si ticket parle d'API, backend, Python, FastAPI → technologies: ["API", "Python", "FastAPI"]
+    - Si ticket parle de Docker, déploiement → technologies: ["Docker"]
     
-    Règles:
-    - technologies: langages, frameworks, bases de données mentionnés
-    - type_incident: choisir UN seul parmi les options
-    - systemes_impactes: quels composants sont affectés
-    - urgence_percue: niveau d'urgence ressenti dans la description
-    - mots_cles: 3-5 mots importants du ticket
+    Réponds UNIQUEMENT au format JSON:
+    {{
+        "technologies": ["techno1", "techno2"],
+        "type_incident": "bug|performance|securite|donnees|question|autre",
+        "systemes_impactes": ["frontend", "backend", "database", "api"],
+        "urgence_percue": "basse|moyenne|haute|critique"
+    }}
     """
     
     try:
         response = client.chat.completions.create(
             model=config.OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "Tu es un expert en analyse technique d'incidents. Réponds uniquement en JSON valide."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=400,
+            max_tokens=300,
             response_format={"type": "json_object"}
         )
-        
         resultat = json.loads(response.choices[0].message.content)
-        
-        # Validation des champs obligatoires
         return {
             "technologies": resultat.get("technologies", []),
             "type_incident": resultat.get("type_incident", "autre"),
             "systemes_impactes": resultat.get("systemes_impactes", []),
-            "urgence_percue": resultat.get("urgence_percue", "moyenne"),
-            "mots_cles": resultat.get("mots_cles", [])
+            "urgence_percue": resultat.get("urgence_percue", "moyenne")
         }
-        
     except Exception as e:
         print(f"❌ Erreur analyseur: {e}")
-        # Fallback en cas d'erreur
+        # Fallback basé sur mots-clés
+        technologies = []
+        texte = (titre + " " + description).lower()
+        if any(word in texte for word in ["front", "interface", "theme", "react", "css", "ui"]):
+            technologies.append("Frontend")
+        if any(word in texte for word in ["postgresql", "sql", "base de donnee", "bdd"]):
+            technologies.append("PostgreSQL")
+        if any(word in texte for word in ["api", "backend", "python", "fastapi"]):
+            technologies.append("API")
+        if any(word in texte for word in ["docker", "deploiement", "container"]):
+            technologies.append("Docker")
+            
         return {
-            "technologies": [],
+            "technologies": technologies if technologies else ["general"],
             "type_incident": "autre",
             "systemes_impactes": [],
-            "urgence_percue": "moyenne",
-            "mots_cles": []
+            "urgence_percue": "moyenne"
         }
