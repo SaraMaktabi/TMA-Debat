@@ -23,11 +23,16 @@ async def lancer_debat(ticket_id: str, db: Session = Depends(get_db)):
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
     
-    # Récupérer les technologies du ticket
-    technologies = ticket.analyse_nlp.get("technologies", []) if ticket.analyse_nlp else []
+    # Récupérer l'analyse complète du ticket
+    analyse_nlp = ticket.analyse_nlp or {
+        "technologies": [],
+        "systemes_impactes": [],
+        "titre": ticket.titre,
+        "description": ticket.description,
+    }
     
     # Recommander 2 techniciens
-    techniciens = recommander_techniciens(technologies, db, limit=2)
+    techniciens = recommander_techniciens(analyse_nlp, db, limit=2)
     if len(techniciens) < 2:
         raise HTTPException(400, "Pas assez de techniciens disponibles")
     

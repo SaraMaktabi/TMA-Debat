@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, Bot, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, Bot, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI } from "../api/client";
 
@@ -24,6 +24,16 @@ interface Ticket {
   created_at?: string;
 }
 
+interface Recommendation {
+  id: string;
+  nom: string;
+  email: string;
+  competences?: Record<string, number>;
+  score_compatibilite: number;
+  raisons?: string[];
+  top_competences?: string[];
+}
+
 export default function TicketDetailsAdmin() {
   const { id: ticketId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -32,6 +42,8 @@ export default function TicketDetailsAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
 
   const normalizeTicket = (data: any): Ticket => ({
     ...data,
@@ -74,6 +86,25 @@ export default function TicketDetailsAdmin() {
 
     return () => clearInterval(interval);
   }, [ticketId]);
+
+  useEffect(() => {
+    if (!ticketId || !ticket) return;
+
+    const fetchRecommendations = async () => {
+      try {
+        setRecommendationsLoading(true);
+        const data = await ticketAPI.getRecommendations(ticketId);
+        setRecommendations(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Erreur recommandations:", err);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [ticketId, ticket?.analyse_nlp, ticket?.score_difficulte]);
 
   const getPriorityStyles = (priorite: string) => {
     switch (priorite) {
@@ -435,6 +466,83 @@ export default function TicketDetailsAdmin() {
                   </div>
                 </div>
               )}
+
+              {/* Recommandations de profils techniques */}
+              <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                  <Target className="w-6 h-6 text-blue-600" />
+                  Recommandation de profil technique
+                </h2>
+
+                {recommendationsLoading ? (
+                  <div className="flex items-center gap-3 text-blue-700">
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Calcul des recommandations...
+                  </div>
+                ) : recommendations.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600">
+                    Aucun technicien disponible pour cette analyse.
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {recommendations.map((technicien) => {
+                      const scoreColor =
+                        technicien.score_compatibilite >= 80 ? "text-green-700 bg-green-100" :
+                        technicien.score_compatibilite >= 60 ? "text-blue-700 bg-blue-100" :
+                        technicien.score_compatibilite >= 40 ? "text-yellow-700 bg-yellow-100" :
+                        "text-gray-700 bg-gray-100";
+
+                      return (
+                        <div key={technicien.id} className="rounded-xl border border-gray-200 p-5 hover:shadow-md transition bg-gradient-to-br from-white to-blue-50/40">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Award className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-lg font-bold text-gray-900">{technicien.nom}</h3>
+                              </div>
+                              <p className="text-sm text-gray-600">{technicien.email}</p>
+                            </div>
+
+                            <div className={`px-4 py-2 rounded-full font-bold text-sm ${scoreColor}`}>
+                              {technicien.score_compatibilite}/100
+                            </div>
+                          </div>
+
+                          {technicien.top_competences && technicien.top_competences.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold text-gray-500 mb-2">COMPÉTENCES CLÉS</p>
+                              <div className="flex flex-wrap gap-2">
+                                {technicien.top_competences.map((competence, competenceIndex) => (
+                                  <span
+                                    key={competenceIndex}
+                                    className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-700 px-3 py-1 text-xs font-semibold"
+                                  >
+                                    {competence}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {technicien.raisons && technicien.raisons.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold text-gray-500 mb-2">POURQUOI CE PROFIL</p>
+                              <ul className="space-y-1 text-sm text-gray-700">
+                                {technicien.raisons.slice(0, 3).map((raison, raisonIndex) => (
+                                  <li key={raisonIndex} className="flex items-start gap-2">
+                                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                                    <span>{raison}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Sidebar */}

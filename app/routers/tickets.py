@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.ticket import Ticket
 from app.agents.scorer import calculer_score
 from app.agents.analyseur import analyser_technologies
-from app.agents.profil import recommander_techniciens
+from app.agents.profil import recommander_techniciens, recommander_techniciens_detaillees
 import uuid
 from datetime import datetime
 from pydantic import BaseModel
@@ -136,23 +136,14 @@ async def get_recommandations(ticket_id: str, db: Session = Depends(get_db)):
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
     
-    # Utiliser l'analyse NLP complète
-    analyse_nlp = ticket.analyse_nlp or {"technologies": [], "systemes_impactes": []}
-    techniciens = recommander_techniciens(analyse_nlp, db, limit=2)
-    
-    # Calculer le score de compatibilité
-    technologies = analyse_nlp.get("technologies", [])
-    
-    return [
-        {
-            "id": str(t.id),
-            "nom": f"{t.prenom} {t.nom}",
-            "email": t.email,
-            "competences": t.competences,
-            "score_compatibilite": min(100, sum(t.competences.get(tech, 0) for tech in technologies) * 10)
-        }
-        for t in techniciens
-    ]
+    analyse_nlp = ticket.analyse_nlp or {
+        "technologies": [],
+        "systemes_impactes": [],
+        "titre": ticket.titre,
+        "description": ticket.description,
+    }
+
+    return recommander_techniciens_detaillees(analyse_nlp, db, limit=3)
 
 @router.get("/")
 async def list_tickets(db: Session = Depends(get_db)):

@@ -42,7 +42,7 @@ def seed():
     try:
         # Vider la table existante
         deleted = db.query(Technicien).delete()
-        print(f"🗑️  {deleted} techniciens supprimés")
+        print(f" {deleted} techniciens supprimés")
         
         # Insérer les nouveaux
         for data in techniciens_data:
@@ -55,16 +55,16 @@ def seed():
             db.add(tech)
         
         db.commit()
-        print(f"✅ {len(techniciens_data)} techniciens insérés")
+        print(f" {len(techniciens_data)} techniciens insérés")
         
         # Afficher la liste
         techs = db.query(Technicien).all()
-        print("\n📋 Liste des techniciens:")
+        print("\n Liste des techniciens:")
         for t in techs:
             print(f"   - {t.prenom} {t.nom} ({t.email})")
             
     except Exception as e:
-        print(f"❌ Erreur: {e}")
+        print(f" Erreur: {e}")
         db.rollback()
     finally:
         db.close()
