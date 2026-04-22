@@ -14,7 +14,7 @@ async def calculer_score(titre: str, description: str, priorite: str, environnem
     ENVIRONNEMENT: {environnement}
     
     Réponds UNIQUEMENT au format JSON:
-    {{"score": 75, "facteurs": ["facteur1", "facteur2", "facteur3"]}}
+    {{"score": ..., "facteurs": ["facteur1", "facteur2", "facteur3"]}}
     """
     
     try:
