@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID
-from database import Base
+from app.database import Base
 import uuid
 
 class Technicien(Base):
