@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { ticketAPI } from "../api/client";
 import { Plus, Search, AlertCircle, CheckCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function Tickets() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"create" | "track">("track");
+  const [loading, setLoading] = useState(false);
 
   // Form states - adaptés au backend
   // const [companyName, setCompanyName] = useState("");
@@ -44,11 +47,20 @@ export default function Tickets() {
   ];
 
   const fetchTickets = async () => {
+    setLoading(true);
     try {
-      const res = await api.get("/tickets");
-      setTickets(res.data);
+      const data = await ticketAPI.list();
+      setTickets(data);
     } catch (error) {
       console.error("Erreur lors du chargement des tickets:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur!",
+        text: "Impossible de charger les tickets",
+        confirmButtonColor: "#001f3f",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +94,17 @@ export default function Tickets() {
     e.preventDefault();
     setIsSubmitting(true);
 
+    if (!title.trim() || !description.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Validation",
+        text: "Veuillez remplir tous les champs obligatoires",
+        confirmButtonColor: "#001f3f",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     // Construction des données au format backend
     const ticketData = {
       titre: title,
@@ -91,24 +114,24 @@ export default function Tickets() {
       application: application
     };
 
-    console.log("📤 Envoi au backend:", ticketData);
+    console.log("Envoi au backend:", ticketData);
 
     try {
-      const response = await api.post("/tickets", ticketData);
+      const response = await ticketAPI.create(ticketData);
       
       // Show success message with SweetAlert
       Swal.fire({
         icon: "success",
-        title: "✅ Ticket créé avec succès!",
+        title: " Ticket créé avec succès!",
         html: `
           <div style="text-align: left;">
-            <p><strong>ID:</strong> ${response.data.id}</p>
+            <p><strong>ID:</strong> ${response.id}</p>
             <p><strong>Titre:</strong> ${title}</p>
             <p><strong>Priorité:</strong> ${prioriteOptions.find(p => p.value === priorite)?.label}</p>
             <p><strong>Environnement:</strong> ${environnementOptions.find(e => e.value === environnement)?.label}</p>
             <p><strong>Application:</strong> ${application}</p>
             <hr class="my-2">
-            <p class="text-sm text-gray-600">🤖 L'analyse IA est en cours... Le score et les recommandations seront disponibles dans quelques secondes.</p>
+            <p class="text-sm text-gray-600">L'analyse IA est en cours. Le score et les recommandations seront disponibles dans quelques secondes.</p>
           </div>
         `,
         confirmButtonColor: "#001f3f",
@@ -116,8 +139,6 @@ export default function Tickets() {
       });
 
       // Reset form
-      // setCompanyName("");
-      // setEmail("");
       setTitle("");
       setDescription("");
       setPriorite("P3");
@@ -125,13 +146,15 @@ export default function Tickets() {
       setApplication("General");
       setActiveTab("track");
 
-      fetchTickets();
+      // Recharger les tickets après un délai (pour laisser le temps au scanner de traiter)
+      setTimeout(() => {
+        fetchTickets();
+      }, 2000);
     } catch (error: any) {
       console.error("Erreur:", error);
-      // Show error message
       Swal.fire({
         icon: "error",
-        title: "❌ Erreur!",
+        title: "Erreur!",
         text: error.response?.data?.detail || "Une erreur s'est produite lors de la création du ticket.",
         confirmButtonColor: "#001f3f",
       });
@@ -402,6 +425,7 @@ export default function Tickets() {
                   const ticketId = `TK-${String(index + 1).padStart(3, '0')}`;
                   const urgency = getUrgencyFromPriorite(ticket.priorite);
                   const status = getStatusLabel(ticket.statut);
+                  const scoreValue = ticket.score ?? ticket.score_difficulte;
                   
                   return (
                     <div
@@ -428,16 +452,16 @@ export default function Tickets() {
                               </span>
                             </div>
                           </div>
-                          {ticket.score && (
+                          {scoreValue !== null && scoreValue !== undefined && (
                             <div className="flex items-center gap-1">
                               <span className="text-xs text-gray-500">Score:</span>
                               <span className={`font-bold text-sm ${
-                                ticket.score >= 80 ? 'text-red-600' :
-                                ticket.score >= 60 ? 'text-orange-600' :
-                                ticket.score >= 40 ? 'text-yellow-600' :
+                                scoreValue >= 80 ? 'text-red-600' :
+                                scoreValue >= 60 ? 'text-orange-600' :
+                                scoreValue >= 40 ? 'text-yellow-600' :
                                 'text-green-600'
                               }`}>
-                                {ticket.score}/100
+                                {scoreValue}/100
                               </span>
                             </div>
                           )}
@@ -479,7 +503,7 @@ export default function Tickets() {
                         {/* Technologies détectées par l'IA */}
                         {ticket.analyse_nlp && ticket.analyse_nlp.technologies && ticket.analyse_nlp.technologies.length > 0 && (
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 mb-2">🔍 Technologies détectées par l'IA:</p>
+                            <p className="text-xs text-gray-500 mb-2"> Technologies détectées par l'IA:</p>
                             <div className="flex flex-wrap gap-2">
                               {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
                                 <span key={i} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
@@ -494,15 +518,15 @@ export default function Tickets() {
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 text-left">
                           <Zap size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
                           <div className="text-left">
-                            <p className="font-semibold text-gray-900 text-sm">💡 Suggestion IA</p>
+                            <p className="font-semibold text-gray-900 text-sm"> Suggestion IA</p>
                             <p className="text-gray-600 text-xs mt-1">
                               {ticket.priorite === "P1" 
-                                ? "🔴 Problème critique détecté. Recommande une investigation immédiate des logs et des ressources système."
+                                ? " Problème critique détecté. Recommande une investigation immédiate des logs et des ressources système."
                                 : ticket.priorite === "P2"
-                                ? "🟠 Priorité élevée. Vérification des configurations et des changements récents recommandée."
+                                ? " Priorité élevée. Vérification des configurations et des changements récents recommandée."
                                 : ticket.priorite === "P3"
-                                ? "🟡 Traitement standard. Analyse automatique en cours."
-                                : "🟢 Priorité faible. Planification de maintenance recommandée."}
+                                ? " Traitement standard. Analyse automatique en cours."
+                                : " Priorité faible. Planification de maintenance recommandée."}
                             </p>
                           </div>
                         </div>
@@ -515,6 +539,17 @@ export default function Tickets() {
                           <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-semibold ml-2">
                             {ticket.environnement || environnement}
                           </span>
+                        </div>
+
+                        {/* View Details Button */}
+                        <div className="pt-4">
+                          <button
+                            onClick={() => navigate(`/ticket/${ticket.id}`)}
+                            className="w-full bg-blue-900 hover:bg-blue-950 text-white py-2 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                          >
+                            <Search size={16} />
+                            Voir les détails et résultats IA
+                          </button>
                         </div>
                       </div>
                     </div>

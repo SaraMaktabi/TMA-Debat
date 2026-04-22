@@ -1,30 +1,52 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Bot, BarChart3, UsersIcon, AlertCircle, CheckCircle, Clock, TrendingUp, Home, Settings, LogOut, Layout, List, MessageSquare, Clock3, CheckCircle2, Zap, Activity, Sparkles } from "lucide-react";
+import { Bot, BarChart3, UsersIcon, AlertCircle, CheckCircle, Clock, TrendingUp, Home, Settings, LogOut, Layout, List, MessageSquare, Clock3, Sparkles, AlertTriangle, ArrowRight, Loader } from "lucide-react";
 import { useState, useEffect } from "react";
-import { api } from "../api/client";
+import { ticketAPI } from "../api/client";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<"list" | "cards">("cards");
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
 
   // Fetch tickets from API
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const res = await api.get("/tickets");
-        setTickets(res.data);
-      } catch (error) {
-        console.error("Error fetching tickets:", error);
-        setTickets([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchTickets = async () => {
+    try {
+      const res = await ticketAPI.list();
+      const normalized = (res || []).map((t: any) => ({
+        ...t,
+        score_difficulte: t?.score_difficulte ?? t?.score,
+      }));
+      setTickets(normalized);
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+      setTickets([]);
+    }
+  };
 
-    fetchTickets();
+  // Initial load
+  useEffect(() => {
+    fetchTickets().then(() => setLoading(false));
   }, []);
+
+  // Relancer l'analyse sur tous les tickets en attente
+//   const handleReanalyzeAll = async () => {
+//     setAnalyzing(true);
+//     try {
+//       const result = await ticketAPI.reanalyzeAllPending();
+//       console.log("Analyse relancee:", result);
+//       alert(`Analyse relancee pour ${result.count} tickets en attente`);
+      
+//       // Re-fetch tickets après 2 secondes
+//       setTimeout(fetchTickets, 2000);
+//     } catch (error) {
+//       console.error("Erreur:", error);
+//       alert("Erreur lors du relancement des analyses");
+//     } finally {
+//       setAnalyzing(false);
+//     }
+//   };
 
   // Calculate stats from tickets
   const stats = [
@@ -66,56 +88,42 @@ export default function Dashboard() {
     { icon: Settings, label: "Paramètres", href: "#", badge: null },
   ];
 
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case "Open":
-        return "bg-red-100 text-red-800";
-      case "In Progress":
-        return "bg-blue-100 text-blue-800";
-      case "Resolved":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Open":
-        return AlertCircle;
-      case "In Progress":
-        return Clock3;
-      case "Resolved":
-        return CheckCircle2;
-      default:
-        return AlertCircle;
-    }
-  };
-
-  const getStatusBadgeStyles = (status: string) => {
-    switch (status) {
-      case "Open":
-        return "text-red-600";
-      case "In Progress":
-        return "text-blue-600";
-      case "Resolved":
-        return "text-green-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
   const getPriorityStyles = (priority: string) => {
     switch (priority) {
-      case "High":
-        return "bg-red-100 text-red-700";
-      case "Medium":
-        return "bg-yellow-100 text-yellow-700";
-      case "Low":
-        return "bg-green-100 text-green-700";
+      case "P1":
+        return { bg: "bg-red-100", text: "text-red-700", Icon: AlertTriangle };
+      case "P2":
+        return { bg: "bg-orange-100", text: "text-orange-700", Icon: AlertCircle };
+      case "P3":
+        return { bg: "bg-yellow-100", text: "text-yellow-700", Icon: AlertCircle };
+      case "P4":
+        return { bg: "bg-green-100", text: "text-green-700", Icon: CheckCircle };
       default:
-        return "bg-gray-100 text-gray-700";
+        return { bg: "bg-gray-100", text: "text-gray-700", Icon: AlertCircle };
     }
+  };
+
+  const getStatusStyles = (statut: string) => {
+    switch (statut) {
+      case "NOUVEAU":
+        return { bg: "bg-blue-100", text: "text-blue-700", label: "Nouveau" };
+      case "EN_ANALYSE":
+        return { bg: "bg-yellow-100", text: "text-yellow-700", label: "En analyse" };
+      case "AFFECTE":
+        return { bg: "bg-purple-100", text: "text-purple-700", label: "Affecté" };
+      case "RESOLU":
+        return { bg: "bg-green-100", text: "text-green-700", label: "Résolu" };
+      default:
+        return { bg: "bg-gray-100", text: "text-gray-700", label: statut };
+    }
+  };
+
+  const getScoreColor = (score?: number) => {
+    if (score === null || score === undefined) return { bg: "bg-gray-100", text: "text-gray-600" };
+    if (score >= 80) return { bg: "bg-red-100", text: "text-red-700" };
+    if (score >= 60) return { bg: "bg-orange-100", text: "text-orange-700" };
+    if (score >= 40) return { bg: "bg-yellow-100", text: "text-yellow-700" };
+    return { bg: "bg-green-100", text: "text-green-700" };
   };
 
   return (
@@ -235,14 +243,7 @@ export default function Dashboard() {
                 Vue d'ensemble complète du système TMA
               </p>
             </div>
-            <Link
-              to="/tickets"
-              className="flex items-center gap-2 px-4 py-2.5 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:opacity-90"
-              style={{backgroundColor: '#08052e'}}
-            >
-              <TrendingUp className="w-4 h-4" />
-              Tous les Tickets
-            </Link>
+        
           </div>
 
           {/* Stats Grid - Light */}
@@ -323,44 +324,67 @@ export default function Dashboard() {
                     <p className="text-gray-600 mt-2">Il n'y a actuellement aucun ticket créé.</p>
                   </div>
                 ) : (
-                  tickets.map((ticket, index) => {
+                  tickets.map((ticket) => {
+                    const priorityStyle = getPriorityStyles(ticket.priorite);
+                    const statusStyle = getStatusStyles(ticket.statut);
+                    const scoreStyle = getScoreColor(ticket.score_difficulte);
+                    const hasScore = ticket.score_difficulte !== null && ticket.score_difficulte !== undefined;
+                    const analysisDone = ticket.statut === "RESOLU" || !!ticket.analyse_nlp || hasScore;
+                    const analysisLabel = analysisDone ? "Résolue" : "En cours";
+                    const PriorityIcon = priorityStyle.Icon;
+                    
                     return (
                       <div
                         key={ticket.id}
-                        onClick={() => navigate(`/ticket/${ticket.id}`)}
+                        onClick={() => navigate(`/ticket-details/${ticket.id}`)}
                         className="group bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-6 transition-all duration-300 cursor-pointer hover:border-purple-300 hover:shadow-lg hover:shadow-purple-200/50 hover:transform hover:-translate-y-2"
                       >
-                        {/* Top Row: Urgency */}
+                        {/* Top Row: Priority and Status */}
                         <div className="flex items-center justify-between gap-3 mb-4">
-                          <div className={`flex items-center gap-2 font-semibold group-hover:scale-105 transition-transform ${
-                            ticket.urgency === "high" ? "text-red-600" :
-                            ticket.urgency === "medium" ? "text-yellow-600" : "text-green-600"
-                          }`}>
-                            <AlertCircle className="w-5 h-5" />
-                            <span className="text-sm">{ticket.urgency === "high" ? "Élevé" : ticket.urgency === "medium" ? "Moyen" : "Faible"}</span>
+                          <div className={`flex items-center gap-2 font-semibold group-hover:scale-105 transition-transform`}>
+                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${priorityStyle.bg} ${priorityStyle.text}`}>
+                              <span className="inline-flex items-center gap-1">
+                                <PriorityIcon className="w-3.5 h-3.5" />
+                                {ticket.priorite}
+                              </span>
+                            </span>
                           </div>
-                          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
-                            ticket.urgency === "high" ? "bg-red-100 text-red-700" :
-                            ticket.urgency === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
-                          }`}>
-                            {ticket.category}
+                          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${statusStyle.bg} ${statusStyle.text}`}>
+                            {statusStyle.label}
                           </span>
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-blue-700 transition-colors">{ticket.title}</h3>
+                        <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-blue-700 transition-colors line-clamp-2">{ticket.titre}</h3>
 
                         {/* Description */}
-                        <p className="text-sm text-gray-600 mb-4">{ticket.description}</p>
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{ticket.description}</p>
 
-                        {/* Company & Email */}
-                        <div className="flex flex-col gap-2 text-xs text-gray-500 mb-4 pb-4 border-t border-gray-200">
-                          <span className="flex items-center gap-1 mt-2">
-                            <strong>Entreprise:</strong> {ticket.company_name}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <strong>Email:</strong> {ticket.email}
-                          </span>
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-t border-b border-gray-200">
+                          <div>
+                            <p className="text-xs text-gray-500">Application</p>
+                            <p className="text-xs font-semibold text-blue-600 mt-1">{ticket.application}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Environnement</p>
+                            <p className="text-xs font-semibold text-blue-600 mt-1">{ticket.environnement}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Score</p>
+                            <p className={`text-sm font-bold mt-1 ${scoreStyle.text}`}>
+                              {ticket.score_difficulte !== null && ticket.score_difficulte !== undefined ? `${ticket.score_difficulte}/100` : "En attente"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Analyse IA</p>
+                            <p className={`text-xs font-semibold mt-1 ${analysisDone ? "text-green-600" : "text-yellow-600"}`}>
+                              <span className="inline-flex items-center gap-1">
+                                {analysisDone ? <CheckCircle className="w-3.5 h-3.5" /> : <Loader className="w-3.5 h-3.5 animate-spin" />}
+                                {analysisLabel}
+                              </span>
+                            </p>
+                          </div>
                         </div>
 
                         {/* Bottom Row: Date and View */}
@@ -371,11 +395,14 @@ export default function Dashboard() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/ticket/${ticket.id}`);
+                              navigate(`/ticket-details/${ticket.id}`);
                             }}
                             className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
                           >
-                            Détails →
+                            <span className="inline-flex items-center gap-1">
+                              Détails
+                              <ArrowRight className="w-4 h-4" />
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -390,11 +417,12 @@ export default function Dashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr className="border-b border-gray-200 bg-gray-50">
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Titre</th>
-                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Entreprise</th>
-                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Urgence</th>
-                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Catégorie</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Priorité</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Statut</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Score</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Application</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Date</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Action</th>
                     </tr>
@@ -413,43 +441,57 @@ export default function Dashboard() {
                         </td>
                       </tr>
                     ) : (
-                      tickets.map((ticket, index) => (
-                        <tr
-                          key={ticket.id}
-                          className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
-                        >
-                          <td className="py-4 px-4">
-                            <p className="text-gray-900 font-medium text-sm">{ticket.title}</p>
-                          </td>
-                          <td className="py-4 px-4">
-                            <p className="text-gray-600 text-sm">{ticket.company_name}</p>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`inline-block px-3 py-1.5 rounded-lg text-xs font-bold ${
-                              ticket.urgency === "high" ? "bg-red-100 text-red-700" :
-                              ticket.urgency === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
-                            }`}>
-                              {ticket.urgency === "high" ? "Élevé" : ticket.urgency === "medium" ? "Moyen" : "Faible"}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-gray-600 text-sm">{ticket.category}</span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-gray-600 text-sm">
-                              {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <button
-                              onClick={() => navigate(`/ticket/${ticket.id}`)}
-                              className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
-                            >
-                              Voir
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      tickets.map((ticket) => {
+                        const priorityStyle = getPriorityStyles(ticket.priorite);
+                        const statusStyle = getStatusStyles(ticket.statut);
+                        const scoreStyle = getScoreColor(ticket.score_difficulte);
+                        const PriorityIcon = priorityStyle.Icon;
+                        
+                        return (
+                          <tr
+                            key={ticket.id}
+                            className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                          >
+                            <td className="py-4 px-4">
+                              <p className="text-gray-900 font-medium text-sm">{ticket.titre}</p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`inline-block px-3 py-1.5 rounded-lg text-xs font-bold ${priorityStyle.bg} ${priorityStyle.text}`}>
+                                <span className="inline-flex items-center gap-1">
+                                  <PriorityIcon className="w-3.5 h-3.5" />
+                                  {ticket.priorite}
+                                </span>
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`inline-block px-3 py-1.5 rounded-lg text-xs font-bold ${statusStyle.bg} ${statusStyle.text}`}>
+                                {statusStyle.label}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className={`text-sm font-bold ${scoreStyle.text}`}>
+                                {ticket.score_difficulte !== null && ticket.score_difficulte !== undefined ? `${ticket.score_difficulte}/100` : "En attente"}
+                              </p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-gray-600 text-sm">{ticket.application}</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-gray-600 text-sm">
+                                {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <button
+                                onClick={() => navigate(`/ticket-details/${ticket.id}`)}
+                                className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
+                              >
+                                Voir
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -460,7 +502,7 @@ export default function Dashboard() {
           {/* Footer */}
           <div className="mt-12 text-center">
             <p className="text-sm text-gray-500">
-              ✨ Dashboard TMA - Gestion intelligente des tickets
+              Dashboard TMA - Gestion intelligente des tickets
             </p>
           </div>
         </div>

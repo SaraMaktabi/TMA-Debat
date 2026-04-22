@@ -1,465 +1,407 @@
-import { Link } from "react-router-dom";
-import { Bot, Home, AlertCircle, Check, Settings, LogOut, ArrowLeft, MessageSquare, Play, CheckCircle2, MessageCircle, TrendingUp, Download, User, Calendar, Clock, Award, Zap } from "lucide-react";
-import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, AlertTriangle, CheckCircle, Search, Users, HelpCircle, Bug, Shield, Database, Cpu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ticketAPI } from "../api/client";
 
-interface Profile {
+interface Ticket {
   id: string;
-  name: string;
-  specialty: string;
-  experience: number;
-  score: number;
-  matchPercentage: number;
+  titre: string;
   description: string;
-  avatar: string;
-}
-
-interface DebateMessage {
-  agentName: string;
-  role: string;
-  message: string;
-  timestamp: string;
-  roleColor: string;
+  priorite: string;
+  statut: string;
+  score?: number;
+  facteurs?: string[];
+  analyse_nlp?: {
+    technologies: string[];
+    type_incident: string;
+    systemes_impactes: string[];
+    urgence_percue: string;
+  };
+  environnement: string;
+  application: string;
+  created_at?: string;
 }
 
 export default function TicketDetails() {
-  const [debateStarted, setDebateStarted] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const { id: ticketId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const ticket = {
-    id: "TKT-001",
-    title: "Database connection timeout",
-    priority: "High",
-    status: "In Progress",
-    created: "2026-04-19 10:30",
-    reporter: "John Doe",
-    description: "Users are experiencing slow response times when accessing the dashboard. The database connection appears to be timing out intermittently, affecting approximately 30% of user requests. This issue started at 10:00 AM today and has been progressively worsening.",
-    attachments: [
-      { name: "error_logs.txt", size: "24 KB" },
-      { name: "database_metrics.png", size: "156 KB" }
-    ]
+  useEffect(() => {
+    if (!ticketId) return;
+
+    const fetchTicket = async () => {
+      try {
+        const data = await ticketAPI.getById(ticketId);
+        setTicket(data);
+        setError(null);
+      } catch (err: any) {
+        console.error("Erreur:", err);
+        setError("Impossible de charger le ticket");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTicket();
+
+    let interval: any;
+    if (autoRefresh && !loading && ticket && !ticket.score) {
+      interval = setInterval(() => {
+        fetchTicket();
+      }, 5000);
+    }
+
+    return () => clearInterval(interval);
+  }, [ticketId, autoRefresh, ticket?.score]);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return { bg: "bg-red-100", text: "text-red-700", label: "Très haute difficulté" };
+    if (score >= 60) return { bg: "bg-orange-100", text: "text-orange-700", label: "Difficulté moyenne-haute" };
+    if (score >= 40) return { bg: "bg-yellow-100", text: "text-yellow-700", label: "Difficulté moyenne" };
+    return { bg: "bg-green-100", text: "text-green-700", label: "Faible difficulté" };
   };
 
-  const recommendedProfiles: Profile[] = [
-    {
-      id: "PROF-001",
-      name: "Database Expert",
-      specialty: "Database Optimization & Tuning",
-      experience: 12,
-      score: 98,
-      matchPercentage: 98,
-      description: "Expert in database performance optimization with extensive experience in connection pooling.",
-      avatar: "DE"
-    },
-    {
-      id: "PROF-002",
-      name: "Backend Specialist",
-      specialty: "Backend Infrastructure",
-      experience: 10,
-      score: 92,
-      matchPercentage: 92,
-      description: "Specialized in high-performance backend systems and scalability issues.",
-      avatar: "BS"
-    },
-    {
-      id: "PROF-003",
-      name: "Performance Engineer",
-      specialty: "System Performance",
-      experience: 8,
-      score: 85,
-      matchPercentage: 85,
-      description: "Dedicated to analyzing and fixing performance bottlenecks in distributed systems.",
-      avatar: "PE"
-    },
-    {
-      id: "PROF-004",
-      name: "DevOps Engineer",
-      specialty: "Infrastructure & Monitoring",
-      experience: 9,
-      score: 78,
-      matchPercentage: 78,
-      description: "Expert in system monitoring, diagnostics, and infrastructure troubleshooting.",
-      avatar: "DO"
-    },
-    {
-      id: "PROF-005",
-      name: "Cloud Architect",
-      specialty: "Cloud Infrastructure",
-      experience: 11,
-      score: 74,
-      matchPercentage: 74,
-      description: "Experienced in diagnosing and resolving cloud-based performance issues.",
-      avatar: "CA"
+  const getPriorityLabel = (priorite: string) => {
+    switch (priorite) {
+      case "P1": return { Icon: AlertTriangle, label: "Critique", color: "text-red-600" };
+      case "P2": return { Icon: AlertCircle, label: "Haute", color: "text-orange-600" };
+      case "P3": return { Icon: AlertCircle, label: "Normal", color: "text-yellow-600" };
+      case "P4": return { Icon: CheckCircle, label: "Faible", color: "text-green-600" };
+      default: return { Icon: HelpCircle, label: "Inconnue", color: "text-gray-600" };
     }
-  ];
+  };
 
-  const debateMessages: DebateMessage[] = [
-    {
-      agentName: "Database Expert",
-      role: "Primary Analyst",
-      message: "The issue signature matches connection pool exhaustion. We need immediate analysis of database logs and connection metrics.",
-      timestamp: "10:31 AM",
-      roleColor: "bg-blue-50 border-blue-200"
-    },
-    {
-      agentName: "Performance Engineer",
-      role: "Validator",
-      message: "Confirmed. I'm seeing 30% impact rate which aligns with pool capacity being hit. Recommend checking for long-running queries.",
-      timestamp: "10:32 AM",
-      roleColor: "bg-purple-50 border-purple-200"
-    },
-    {
-      agentName: "Backend Specialist",
-      role: "Context Provider",
-      message: "Recent deployment 2 hours ago might be related. The query optimization changes could be causing lock contention.",
-      timestamp: "10:33 AM",
-      roleColor: "bg-orange-50 border-orange-200"
-    },
-    {
-      agentName: "Database Expert",
-      role: "Solution Proposer",
-      message: "Recommended: 1) Increase pool size, 2) Optimize recent queries, 3) Add query timeouts. Priority: Pool size first.",
-      timestamp: "10:34 AM",
-      roleColor: "bg-green-50 border-green-200"
+  const getStatusLabel = (statut: string) => {
+    switch (statut) {
+      case "NOUVEAU": return { Icon: Tag, label: "Nouveau", color: "bg-blue-100 text-blue-700" };
+      case "EN_ANALYSE": return { Icon: Search, label: "En analyse", color: "bg-yellow-100 text-yellow-700" };
+      case "AFFECTE": return { Icon: Users, label: "Affecté", color: "bg-purple-100 text-purple-700" };
+      case "RESOLU": return { Icon: CheckCircle, label: "Résolu", color: "bg-green-100 text-green-700" };
+      default: return { Icon: HelpCircle, label: statut, color: "bg-gray-100 text-gray-700" };
     }
-  ];
+  };
 
-  const menuItems = [
-    { icon: Home, label: "Accueil", href: "/dashboard" },
-    { icon: AlertCircle, label: "Tickets", href: "/tickets" },
-    { icon: Settings, label: "Paramètres", href: "#" },
-  ];
+  const getIncidentTypeLabel = (type: string) => {
+    const mapping: Record<string, string> = {
+      "bug": "Bug",
+      "performance": "Performance",
+      "securite": "Sécurité",
+      "donnees": "Données",
+      "question": "Question",
+      "autre": "Autre"
+    };
+    return mapping[type] || type;
+  };
+
+  const getIncidentTypeIcon = (type: string) => {
+    const mapping: Record<string, any> = {
+      "bug": Bug,
+      "performance": Zap,
+      "securite": Shield,
+      "donnees": Database,
+      "question": HelpCircle,
+      "autre": HelpCircle,
+    };
+    return mapping[type] || HelpCircle;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-blue-900 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Chargement du ticket...</p>
+          {!ticket?.score && <p className="text-sm text-gray-500 mt-2">L'analyse IA est en cours...</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !ticket) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <nav className="border-b border-gray-200 bg-white sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4">
+            <button
+              onClick={() => navigate("/tickets")}
+              className="flex items-center gap-2 text-blue-900 hover:text-blue-950 font-medium"
+            >
+              <ArrowLeft size={20} />
+              Retour aux tickets
+            </button>
+          </div>
+        </nav>
+        <div className="flex items-center justify-center pt-20">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <p className="text-gray-600">{error || "Ticket introuvable"}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const scoreInfo = ticket.score ? getScoreColor(ticket.score) : null;
+  const priorityInfo = getPriorityLabel(ticket.priorite);
+  const statusInfo = getStatusLabel(ticket.statut);
+  const PriorityIcon = priorityInfo.Icon;
+  const StatusIcon = statusInfo.Icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
-        <div className="p-6 border-b border-gray-100">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Bot className="w-8 h-8 text-blue-900" />
-            <span className="font-semibold text-lg text-gray-900">TMA System</span>
-          </Link>
-        </div>
-
-        <nav className="p-4 space-y-2">
-          {menuItems.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={index}
-                to={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 group"
-              >
-                <Icon className="w-5 h-5 group-hover:text-blue-600" />
-                <span className="text-sm font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-gray-50">
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
-            <LogOut className="w-5 h-5 group-hover:text-red-600" />
-            <span className="text-sm font-medium">Déconnexion</span>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <button
+            onClick={() => navigate("/tickets")}
+            className="flex items-center gap-2 text-blue-900 hover:text-blue-950 font-medium transition"
+          >
+            <ArrowLeft size={20} />
+            Retour aux tickets
           </button>
         </div>
-      </aside>
+      </nav>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Top Navigation */}
-        <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm">
-          <div className="px-8 py-4 flex items-center justify-between">
-            <Link to="/dashboard" className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors group">
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              <span className="font-medium">Retour au Tableau de Bord</span>
-            </Link>
-            {selectedProfile && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-semibold text-green-700">{selectedProfile.name} sélectionné</span>
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="mb-8">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900">{ticket.titre}</h1>
+              <p className="text-gray-600 mt-2">ID: <span className="font-mono text-blue-900">{ticket.id}</span></p>
+            </div>
+            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium ${statusInfo.color}`}>
+              <StatusIcon className="w-4 h-4" />
+              {statusInfo.label}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-xs text-gray-500 mb-1">Priorité</p>
+              <p className={`font-bold text-lg ${priorityInfo.color} inline-flex items-center gap-2`}>
+                <PriorityIcon className="w-5 h-5" />
+                {priorityInfo.label}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-xs text-gray-500 mb-1">Environnement</p>
+              <p className="font-bold text-lg text-blue-900">{ticket.environnement}</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-xs text-gray-500 mb-1">Application</p>
+              <p className="font-bold text-lg text-blue-900">{ticket.application}</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-xs text-gray-500 mb-1">Créé le</p>
+              <p className="font-bold text-sm text-blue-900">
+                {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <MessageCircle size={20} />
+                Description
+              </h2>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+            </div>
+
+            {ticket.score !== null && ticket.score !== undefined ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Zap size={20} className="text-yellow-600" />
+                  Analyse IA & Score
+                </h2>
+
+                <div className={`${scoreInfo?.bg} rounded-lg p-6 mb-6`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Score de Difficulté</p>
+                      <p className={`text-4xl font-bold ${scoreInfo?.text}`}>{ticket.score}/100</p>
+                      <p className={`text-sm font-medium mt-2 ${scoreInfo?.text}`}>{scoreInfo?.label}</p>
+                    </div>
+                    <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center" style={{
+                      borderColor: scoreInfo?.text === "text-red-700" ? "#dc2626" : 
+                                   scoreInfo?.text === "text-orange-700" ? "#ea580c" :
+                                   scoreInfo?.text === "text-yellow-700" ? "#ca8a04" : "#16a34a"
+                    }}>
+                      <p className="text-2xl font-bold">{Math.round(ticket.score)}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {ticket.facteurs && ticket.facteurs.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 inline-flex items-center gap-2">
+                      <Search className="w-4 h-4" />
+                      Facteurs de complexité
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {ticket.facteurs.map((facteur: string, i: number) => (
+                        <span key={i} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                          {facteur}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                  <div>
+                      <p className="font-semibold text-blue-900">Analyse en cours...</p>
+                    <p className="text-sm text-blue-700 mt-1">Le scorer et l'analyseur traitent ton ticket. Cela prendra quelques secondes.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {ticket.analyse_nlp && (
+              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <TrendingUp size={20} className="text-purple-600" />
+                  Analyse Détaillée
+                </h2>
+
+                <div className="space-y-4">
+                  {ticket.analyse_nlp.type_incident && (
+                    <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+                      {(() => {
+                        const IncidentIcon = getIncidentTypeIcon(ticket.analyse_nlp?.type_incident || "autre");
+                        return <IncidentIcon size={20} className="text-purple-600 flex-shrink-0 mt-1" />;
+                      })()}
+                      <div>
+                        <p className="text-sm text-gray-600 font-medium">Type d'Incident</p>
+                        <p className="text-gray-900 font-semibold">{getIncidentTypeLabel(ticket.analyse_nlp.type_incident)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {ticket.analyse_nlp.technologies && ticket.analyse_nlp.technologies.length > 0 && (
+                    <div className="pb-4 border-b border-gray-200">
+                      <p className="text-sm text-gray-600 font-medium mb-2 inline-flex items-center gap-2">
+                        <Cpu className="w-4 h-4" />
+                        Technologies Détectées
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
+                          <span key={i} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {ticket.analyse_nlp.systemes_impactes && ticket.analyse_nlp.systemes_impactes.length > 0 && (
+                    <div className="pb-4 border-b border-gray-200">
+                      <p className="text-sm text-gray-600 font-medium mb-2 inline-flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        Systèmes Impactés
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {ticket.analyse_nlp.systemes_impactes.map((sys: string, i: number) => (
+                          <span key={i} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                            {sys}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {ticket.analyse_nlp.urgence_percue && (
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium mb-2 inline-flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Urgence Perçue
+                      </p>
+                      <div className={`inline-block px-4 py-2 rounded-lg font-semibold ${
+                        ticket.analyse_nlp.urgence_percue === "critique" ? "bg-red-100 text-red-700" :
+                        ticket.analyse_nlp.urgence_percue === "haute" ? "bg-orange-100 text-orange-700" :
+                        ticket.analyse_nlp.urgence_percue === "moyenne" ? "bg-yellow-100 text-yellow-700" :
+                        "bg-green-100 text-green-700"
+                      }`}>
+                        {ticket.analyse_nlp.urgence_percue.toUpperCase()}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
-        </nav>
 
-        {/* Page Content */}
-        <div className="px-8 py-8">
-          {/* Ticket Header - Enhanced */}
-          <div className="mb-8">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-gray-900">{ticket.title}</h1>
-                  <span className="text-lg text-gray-500 font-semibold">#{ticket.id}</span>
-                </div>
-                <p className="text-gray-600">Gérez et analysez ce ticket avec l'aide de nos experts IA</p>
-              </div>
-              {!debateStarted && (
-                <button
-                  onClick={() => setDebateStarted(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl"
-                >
-                  <Zap className="w-5 h-5" />
-                  Lancer Débat IA
-                </button>
-              )}
-            </div>
-
-            {/* Meta Info - Improved */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <AlertCircle className="w-6 h-6 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 font-medium">Priorité</p>
-                  <p className="text-lg font-bold text-gray-900">{ticket.priority}</p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 font-medium">Statut</p>
-                  <p className="text-lg font-bold text-gray-900">{ticket.status}</p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 font-medium">Créé</p>
-                  <p className="text-lg font-bold text-gray-900">{ticket.created}</p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <User className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 font-medium">Signalé par</p>
-                  <p className="text-lg font-bold text-gray-900">{ticket.reporter}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            {/* Left Column - Description & Attachments */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Description */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-300">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <MessageCircle className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">Description du problème</h2>
-                </div>
-                <p className="text-gray-700 leading-relaxed text-base">{ticket.description}</p>
-              </div>
-
-              {/* Attachments */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-300">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Download className="w-5 h-5 text-gray-600" />
-                  Pièces jointes
-                </h3>
-                <div className="space-y-3">
-                  {ticket.attachments.map((att, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 cursor-pointer group"
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:shadow-lg transition-all">
-                        <span className="text-white font-bold text-lg"></span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{att.name}</p>
-                        <p className="text-sm text-gray-500">{att.size}</p>
-                      </div>
-                      <Download className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Recommended Profiles */}
-            <div className="bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm h-fit sticky top-24">
-              <div className="mb-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Profils Recommandés</h2>
-                <p className="text-sm text-gray-600">Top 5 meilleurs profils pour ce ticket</p>
-              </div>
-
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm sticky top-24">
+              <h3 className="font-bold text-gray-900 mb-4">Informations</h3>
               <div className="space-y-3">
-                {recommendedProfiles.map((profile, idx) => (
-                  <div
-                    key={profile.id}
-                    onClick={() => setSelectedProfile(profile)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 transform hover:scale-105 ${
-                      selectedProfile?.id === profile.id
-                        ? "border-purple-500 bg-purple-50 shadow-lg"
-                        : "border-gray-200 bg-white hover:border-purple-300 hover:shadow-md"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white transition-all ${
-                          selectedProfile?.id === profile.id 
-                            ? "bg-gradient-to-br from-purple-600 to-purple-700 shadow-lg" 
-                            : "bg-gradient-to-br from-blue-500 to-blue-600"
-                        }`}>
-                          {profile.avatar}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900 text-sm truncate">{profile.name}</p>
-                          <p className="text-xs text-gray-600 truncate">{profile.specialty}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-purple-600">{profile.matchPercentage}%</div>
-                        <div className="text-xs text-gray-500 flex items-center gap-1 justify-end">
-                          <Award className="w-3 h-3" /> Match
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 text-xs text-gray-600 bg-gray-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
-                      <span className="flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-yellow-500" /> Score: {profile.score}/100
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-blue-500" /> {profile.experience} ans
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {selectedProfile && (
-                <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg transform animate-pulse">
-                  <p className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" /> Profil sélectionné
+                <div>
+                  <p className="text-xs text-gray-500">Score</p>
+                  <p className="text-xl font-bold text-blue-900">
+                    {ticket.score ? `${ticket.score}/100` : "En cours..."}
                   </p>
-                  <p className="text-xs text-blue-800">{selectedProfile.description}</p>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Multi-Agent Debate Section - Enhanced */}
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-8 py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Débat Multi-Agents IA</h2>
-                    <p className="text-purple-100 text-sm">Analyse collaborative en temps réel</p>
-                  </div>
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs text-gray-500">Statut</p>
+                  <p className="font-semibold text-gray-900">{statusInfo.label}</p>
                 </div>
-                {!debateStarted && (
-                  <button
-                    onClick={() => setDebateStarted(true)}
-                    className="px-6 py-3 bg-white text-purple-600 font-bold rounded-lg hover:bg-purple-50 transition-all duration-300 flex items-center gap-2 shadow-lg"
-                  >
-                    <Play className="w-5 h-5" />
-                    Démarrer
-                  </button>
-                )}
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs text-gray-500">Application</p>
+                  <p className="font-semibold text-gray-900">{ticket.application}</p>
+                </div>
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs text-gray-500">Environnement</p>
+                  <p className="font-semibold text-gray-900">{ticket.environnement}</p>
+                </div>
               </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh && !ticket.score}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    disabled={!!ticket.score}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-600">
+                    {ticket.score ? "Analyse terminée" : "Actualiser automatiquement"}
+                  </span>
+                </label>
+              </div>
+
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full mt-4 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 font-medium transition flex items-center justify-center gap-2"
+              >
+                <Clock size={16} />
+                Actualiser
+              </button>
             </div>
 
-            <div className="px-8 py-8">
-              {debateStarted ? (
-                <div className="space-y-4">
-                  {debateMessages.map((msg, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`border-l-4 border-purple-500 pl-6 py-4 rounded-r-lg transition-all duration-500 transform hover:translate-x-1 ${msg.roleColor}`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-gray-900 text-lg">{msg.agentName}</span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            msg.role === "Primary Analyst" ? "bg-blue-200 text-blue-700" :
-                            msg.role === "Validator" ? "bg-purple-200 text-purple-700" :
-                            msg.role === "Context Provider" ? "bg-orange-200 text-orange-700" :
-                            "bg-green-200 text-green-700"
-                          }`}>
-                            {msg.role}
-                          </span>
-                        </div>
-                        <span className="text-xs font-medium text-gray-600">{msg.timestamp}</span>
-                      </div>
-                      <p className="text-gray-800 leading-relaxed">{msg.message}</p>
-                    </div>
-                  ))}
-
-                  <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg transform">
-                    <div className="flex items-start gap-4">
-                      <div className="w-14 h-14 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-7 h-7 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-lg font-bold text-green-900 mb-3"> Consensus Obtenu</p>
-                        <div className="space-y-2 text-green-800 text-sm">
-                          <div className="flex items-start gap-2">
-                            <span className="font-bold text-lg">→</span>
-                            <div>
-                              <span className="font-bold">Meilleur Profil :</span> Database Expert (98% correspondance)
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="font-bold text-lg">→</span>
-                            <div>
-                              <span className="font-bold">Actions Recommandées :</span> 
-                              <ul className="list-disc list-inside mt-1 ml-2">
-                                <li>Augmenter la taille du pool de connexions</li>
-                                <li>Optimiser les requêtes récentes</li>
-                                <li>Ajouter des délais d'attente aux requêtes</li>
-                              </ul>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="font-bold text-lg">→</span>
-                            <div>
-                              <span className="font-bold">Score de Confiance :</span> 98/100
-                            </div>
-                          </div>
-                        </div>
-                        <button className="mt-4 px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all">
-                          Assigner au Profil Sélectionné
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                    <MessageSquare className="w-8 h-8 text-purple-600" />
-                  </div>
-                  <p className="text-gray-600 font-semibold mb-2 text-lg">Prêt pour le débat IA ?</p>
-                  <p className="text-gray-500 mb-6 max-w-md text-center">Lancez un débat multi-agents pour obtenir les meilleures recommandations</p>
-                  <button
-                    onClick={() => setDebateStarted(true)}
-                    className="px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-                  >
-                    <Play className="w-6 h-6" />
-                    Lancer le Débat
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6 shadow-sm">
+              <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                <Zap size={18} />
+                Système IA
+              </h3>
+              <p className="text-sm text-blue-800 mb-4">
+                Ce ticket a été automatiquement analysé par notre système IA qui utilise:
+              </p>
+              <ul className="text-sm text-blue-800 space-y-2">
+                <li><strong>Analyseur NLP</strong> - Extraction des technologies</li>
+                <li><strong>Scorer IA</strong> - Calcul du score de difficulté</li>
+                <li><strong>Profil Matcher</strong> - Recommandations de techniciens</li>
+              </ul>
+            </div> */}
           </div>
         </div>
       </div>

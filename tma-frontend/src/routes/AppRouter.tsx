@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "../pages/Home";
 import Tickets from "../pages/Tickets";
 import TicketDetails from "../pages/TicketDetails";
+import TicketDetailsAdmin from "../pages/TicketDetailsAdmin";
 import Debate from "../pages/Debate";
 import Dashboard from "../pages/Dashboard";
 import Users from "../pages/Users";
@@ -17,6 +18,7 @@ export default function AppRouter() {
         <Route path="/demo" element={<Demo />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/ticket/:id" element={<TicketDetails />} />
+        <Route path="/ticket-details/:id" element={<TicketDetailsAdmin />} />
         <Route path="/debat/:id" element={<Debate />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />

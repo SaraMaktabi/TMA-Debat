@@ -23,27 +23,44 @@ router = APIRouter()
 # Fonction d'analyse en arrière-plan (NLP + Score)
 async def analyser_et_scorer_ticket_background(ticket_id: uuid.UUID, titre: str, description: str, priorite: str, environnement: str):
     from app.database import SessionLocal
+    import asyncio
     db = SessionLocal()
     try:
-        # 1. Agent Analyseur (NLP)
-        analyse = await analyser_technologies(titre, description)
+        # Exécuter les 2 agents EN PARALLÈLE (pas séquentiellement)
+        analyse, score_resultat = await asyncio.gather(
+            analyser_technologies(titre, description),
+            calculer_score(titre, description, priorite, environnement),
+            return_exceptions=True  # Continue même si l'un échoue
+        )
+        
+        # Vérifier si ce sont des exceptions
+        if isinstance(analyse, Exception):
+            print(f"⚠️ Erreur analyseur: {analyse}")
+            analyse = {
+                "technologies": ["general"],
+                "type_incident": "autre",
+                "systemes_impactes": [],
+                "urgence_percue": "moyenne"
+            }
+        
+        if isinstance(score_resultat, Exception):
+            print(f"⚠️ Erreur scorer: {score_resultat}")
+            score_resultat = {"score": 50, "facteurs": ["erreur_calcul"]}
+        
         print(f"✅ Analyse NLP terminée pour ticket {ticket_id}")
         print(f"   Technologies détectées: {analyse.get('technologies', [])}")
+        print(f"✅ Score calculé pour ticket {ticket_id}: {score_resultat.get('score', 0)}")
         
-        # 2. Agent Scorer (Score)
-        score_resultat = await calculer_score(titre, description, priorite, environnement)
-        print(f"✅ Score calculé pour ticket {ticket_id}: {score_resultat['score']}")
-        
-        # 3. Mise à jour du ticket
+        # Mise à jour du ticket avec garantie que les deux champs sont remplis
         ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
         if ticket:
             ticket.analyse_nlp = analyse
-            ticket.score_difficulte = score_resultat["score"]
-            ticket.facteurs_score = score_resultat["facteurs"]
+            ticket.score_difficulte = score_resultat.get("score", 50)
+            ticket.facteurs_score = score_resultat.get("facteurs", [])
             db.commit()
             print(f"✅ Ticket {ticket_id} mis à jour (analyse + score)")
     except Exception as e:
-        print(f"❌ Erreur analyse/score: {e}")
+        print(f"❌ Erreur critique analyse/score: {e}")
     finally:
         db.close()
 
@@ -178,4 +195,54 @@ async def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
         "analyse_nlp": ticket.analyse_nlp,
         "technicien_assigne_id": str(ticket.technicien_assigne_id) if ticket.technicien_assigne_id else None,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None
+    }
+
+@router.post("/{ticket_id}/reanalyze")
+async def reanalyze_ticket(ticket_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Relancer l'analyse NLP + Score sur un ticket existant"""
+    try:
+        ticket_id_uuid = uuid.UUID(ticket_id)
+    except ValueError:
+        raise HTTPException(400, "ID invalide")
+    
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id_uuid).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+    
+    # Lancer de nouveau l'analyse en arrière-plan
+    background_tasks.add_task(
+        analyser_et_scorer_ticket_background,
+        ticket.id,
+        ticket.titre,
+        ticket.description,
+        ticket.priorite,
+        ticket.environnement
+    )
+    
+    return {"message": f"Analyse relancée pour ticket {ticket_id}", "status": "processing"}
+
+@router.post("/reanalyze-all/pending")
+async def reanalyze_all_pending(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Relancer l'analyse sur TOUS les tickets sans analyse complète"""
+    # Trouver les tickets sans analyse NLP
+    pending_tickets = db.query(Ticket).filter(
+        (Ticket.analyse_nlp == None) | (Ticket.score_difficulte == None)
+    ).all()
+    
+    count = 0
+    for ticket in pending_tickets:
+        background_tasks.add_task(
+            analyser_et_scorer_ticket_background,
+            ticket.id,
+            ticket.titre,
+            ticket.description,
+            ticket.priorite,
+            ticket.environnement
+        )
+        count += 1
+    
+    return {
+        "message": f"Analyse relancée pour {count} tickets en attente",
+        "count": count,
+        "status": "processing"
     }
