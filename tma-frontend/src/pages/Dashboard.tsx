@@ -220,13 +220,12 @@ export default function Dashboard() {
     { name: "Affecte", value: statusCounts.AFFECTE, color: "#7c3aed" },
     { name: "Resolue", value: statusCounts.RESOLU, color: "#10b981" },
   ];
-
-  const priorityChartData = [
-    { name: "P1", value: filteredTickets.filter((t) => t.priorite === "P1").length, color: "#ef4444" },
-    { name: "P2", value: filteredTickets.filter((t) => t.priorite === "P2").length, color: "#f97316" },
-    { name: "P3", value: filteredTickets.filter((t) => t.priorite === "P3").length, color: "#eab308" },
-    { name: "P4", value: filteredTickets.filter((t) => t.priorite === "P4").length, color: "#22c55e" },
-  ];
+const priorityChartData = [
+  { name: "P1", value: filteredTickets.filter((t) => t.priorite === "P1").length },
+  { name: "P2", value: filteredTickets.filter((t) => t.priorite === "P2").length },
+  { name: "P3", value: filteredTickets.filter((t) => t.priorite === "P3").length },
+  { name: "P4", value: filteredTickets.filter((t) => t.priorite === "P4").length },
+];
 
   const trendData = useMemo(() => {
     const days = 7;
@@ -292,116 +291,75 @@ export default function Dashboard() {
     }
   };
 
-  const chartPalette = {
-    fills: ["#0ea5e9", "#16a34a", "#f59e0b", "#8b5cf6", "#ef4444", "#14b8a6"],
-    strokes: ["#0369a1", "#15803d", "#d97706", "#6d28d9", "#b91c1c", "#0f766e"],
+const chartPalette = {
+  fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
+  strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
+};
+
+const trendChartOptions = useMemo((): AgChartOptions => {
+  return {
+    data: trendData,
+    background: { fill: "transparent" },
+    theme: { palette: chartPalette },
+    series: [
+      {
+        type: "area",
+        xKey: "label",
+        yKey: "tickets",
+        fillOpacity: 0.25,
+        strokeWidth: 3,
+        marker: {
+          enabled: true,
+          size: 6,
+          fill: "#3A9AFF",
+          stroke: "#1C0770",
+        },
+      },
+    ],
   };
+}, [trendData]);
 
-  const trendChartOptions = useMemo((): AgChartOptions => {
-    return {
-      data: trendData,
-      background: { fill: "transparent" },
-      padding: { top: 16, right: 16, bottom: 18, left: 8 },
-      theme: { palette: chartPalette },
-      series: [
-        {
-          type: "area",
-          xKey: "label",
-          yKey: "tickets",
-          yName: "Tickets",
-          fillOpacity: 0.2,
-          strokeWidth: 3,
-          marker: {
-            enabled: true,
-            size: 6,
-            fill: "#0ea5e9",
-            stroke: "#0369a1",
-            strokeWidth: 1,
-          },
-        },
-      ],
-      axes: [
-        {
-          type: "category",
-          position: "bottom",
-          label: { color: "#475569", fontSize: 11 },
-        },
-        {
-          type: "number",
-          position: "left",
-          min: 0,
-          nice: true,
-          label: { color: "#475569", fontSize: 11 },
-          gridLine: { style: [{ stroke: "#e2e8f0", lineDash: [5, 4] }] },
-        },
-      ],
-      legend: { enabled: false },
-    };
-  }, [trendData]);
-
-  const priorityChartOptions = useMemo((): AgChartOptions => {
-    return {
-      data: priorityChartData.filter((item) => item.value > 0),
-      background: { fill: "transparent" },
-      padding: { top: 8, right: 8, bottom: 8, left: 8 },
-      theme: {
-        palette: {
-          fills: ["#dc2626", "#f97316", "#f59e0b", "#16a34a"],
-          strokes: ["#991b1b", "#c2410c", "#b45309", "#166534"],
-        },
+const priorityChartOptions = useMemo((): AgChartOptions => {
+  return {
+    data: priorityChartData,
+    background: { fill: "transparent" },
+    theme: {
+      palette: {
+        fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
+        strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
       },
-      series: [
-        {
-          type: "donut",
-          angleKey: "value",
-          calloutLabelKey: "name",
-          sectorLabelKey: "value",
-          innerRadiusRatio: 0.62,
-          strokeWidth: 2,
-        },
-      ],
-      legend: { enabled: false },
-    };
-  }, [priorityChartData]);
-
-  const statusChartOptions = useMemo((): AgChartOptions => {
-    return {
-      data: statusChartData,
-      background: { fill: "transparent" },
-      padding: { top: 12, right: 18, bottom: 18, left: 8 },
-      theme: {
-        palette: {
-          fills: ["#0284c7", "#d97706", "#7c3aed", "#16a34a"],
-          strokes: ["#0c4a6e", "#92400e", "#5b21b6", "#14532d"],
-        },
+    },
+    series: [
+      {
+        type: "donut",
+        angleKey: "value",
+        calloutLabelKey: "name",
+        innerRadiusRatio: 0.6,
       },
-      series: [
-        {
-          type: "bar",
-          xKey: "name",
-          yKey: "value",
-          yName: "Tickets",
-          cornerRadius: 8,
-        },
-      ],
-      axes: [
-        {
-          type: "category",
-          position: "bottom",
-          label: { color: "#475569", fontSize: 11 },
-        },
-        {
-          type: "number",
-          position: "left",
-          min: 0,
-          nice: true,
-          label: { color: "#475569", fontSize: 11 },
-          gridLine: { style: [{ stroke: "#e2e8f0", lineDash: [5, 4] }] },
-        },
-      ],
-      legend: { enabled: false },
-    };
-  }, [statusChartData]);
+    ],
+  };
+}, [priorityChartData]);
+
+ const statusChartOptions = useMemo((): AgChartOptions => {
+  return {
+    data: statusChartData,
+    background: { fill: "transparent" },
+    theme: {
+      palette: {
+        fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
+        strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
+      },
+    },
+    series: [
+      {
+        type: "bar",
+        xKey: "name",
+        yKey: "value",
+        cornerRadius: 10,
+      },
+    ],
+  };
+}, [statusChartData]);
 
 
   return (
@@ -473,7 +431,7 @@ export default function Dashboard() {
       </aside>
 
       <div className="flex-1 overflow-auto">
-        <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
+        {/* <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
           <div className="px-8 py-5 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -500,7 +458,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </nav>
+        </nav> */}
 
         <div className="px-8 py-8">
           <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
@@ -546,7 +504,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {kpiValues.highPriority > 0 && (
+          {/* {kpiValues.highPriority > 0 && (
             <div className="mb-6 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50 p-4 flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-rose-100">
@@ -567,7 +525,7 @@ export default function Dashboard() {
                 Voir les critiques
               </button>
             </div>
-          )}
+          )} */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5 mb-10">
             {stats.map((stat, index) => {
@@ -611,14 +569,14 @@ export default function Dashboard() {
               <div className="h-72">
                 <AgCharts options={priorityChartOptions} />
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              {/* <div className="grid grid-cols-2 gap-2 text-xs">
                 {priorityChartData.map((item) => (
                   <div key={item.name} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
                     <span className="text-gray-700">{item.name}: {item.value}</span>
                   </div>
                 ))}
-              </div>
+              </div> */}
             </div>
           </div>
 
