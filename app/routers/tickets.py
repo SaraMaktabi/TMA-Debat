@@ -152,10 +152,13 @@ async def list_tickets(db: Session = Depends(get_db)):
     return [
         {
             "id": str(t.id), 
-            "titre": t.titre, 
-            "priorite": t.priorite, 
-            "statut": t.statut, 
+            "titre": t.titre,
+            "description": t.description,
+            "priorite": t.priorite,
+            "statut": t.statut,
             "score": t.score_difficulte,
+            "application": t.application,
+            "environnement": t.environnement,
             "created_at": t.created_at.isoformat() if t.created_at else None
         } 
         for t in tickets

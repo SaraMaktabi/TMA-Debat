@@ -5,6 +5,7 @@ import TicketDetails from "../pages/TicketDetails";
 import TicketDetailsAdmin from "../pages/TicketDetailsAdmin";
 import Debate from "../pages/Debate";
 import Dashboard from "../pages/Dashboard";
+import AdminTickets from "../pages/AdminTickets";
 import Users from "../pages/Users";
 import Login from "../pages/Login";
 import SignUp from "../pages/SignUp";
@@ -62,6 +63,14 @@ export default function AppRouter() {
           element={
             <ProtectedRoute adminOnly>
               <Users />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin-tickets"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminTickets />
             </ProtectedRoute>
           }
         />
