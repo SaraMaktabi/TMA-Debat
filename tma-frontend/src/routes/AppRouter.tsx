@@ -9,6 +9,7 @@ import Users from "../pages/Users";
 import Login from "../pages/Login";
 import SignUp from "../pages/SignUp";
 import Demo from "../pages/Demo";
+import ProtectedRoute from "../components/ProtectedRoute";
 
 export default function AppRouter() {
   return (
@@ -20,8 +21,22 @@ export default function AppRouter() {
         <Route path="/ticket/:id" element={<TicketDetails />} />
         <Route path="/ticket-details/:id" element={<TicketDetailsAdmin />} />
         <Route path="/debat/:id" element={<Debate />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/users" element={<Users />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute adminOnly>
+              <Users />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
       </Routes>

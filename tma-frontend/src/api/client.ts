@@ -54,3 +54,72 @@ export const ticketAPI = {
     return response.data;
   },
 };
+
+// ===== API USERS =====
+export interface UserDto {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  department: string;
+  status: "Active" | "Inactive";
+  joinDate: string | null;
+  lastActive: string;
+}
+
+export interface UserCreatePayload {
+  nom: string;
+  prenom: string;
+  email: string;
+  password: string;
+  role: string;
+  department: string;
+  phone: string;
+}
+
+export interface UserUpdatePayload {
+  nom: string;
+  prenom: string;
+  email: string;
+  password?: string;
+  role: string;
+  department: string;
+  phone: string;
+}
+
+export interface AuthLoginResponse {
+  message: string;
+  user: UserDto;
+}
+
+export const userAPI = {
+  list: async (): Promise<UserDto[]> => {
+    const response = await api.get("/api/users");
+    return response.data;
+  },
+
+  create: async (payload: UserCreatePayload): Promise<UserDto> => {
+    const response = await api.post("/api/users", payload);
+    return response.data;
+  },
+
+  update: async (id: string, payload: UserUpdatePayload): Promise<UserDto> => {
+    const response = await api.put(`/api/users/${id}`, payload);
+    return response.data;
+  },
+
+  updateStatus: async (id: string, status: "Active" | "Inactive"): Promise<UserDto> => {
+    const response = await api.patch(`/api/users/${id}/status`, { status });
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/users/${id}`);
+  },
+
+  login: async (email: string, password: string): Promise<AuthLoginResponse> => {
+    const response = await api.post("/api/users/login", { email, password });
+    return response.data;
+  },
+};

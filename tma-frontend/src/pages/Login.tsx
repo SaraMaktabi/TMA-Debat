@@ -1,22 +1,54 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bot, Eye, EyeOff, ArrowRight, Shield, Zap, Lock } from "lucide-react";
+import { userAPI } from "../api/client";
+import { saveSession } from "../utils/auth";
+
+interface ApiErrorLike {
+  response?: {
+    data?: {
+      detail?: unknown;
+    };
+  };
+}
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError(null);
     setIsLoading(true);
-    // Simulate login process
-    setTimeout(() => {
+
+    try {
+      const response = await userAPI.login(email, password);
+
+      saveSession({
+        id: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        role: response.user.role,
+      });
+
+      if (response.user.role === "Admin") {
+        navigate("/users", { replace: true });
+        return;
+      }
+
+      navigate("/dashboard", { replace: true });
+    } catch (error: unknown) {
+      const apiError = error as ApiErrorLike;
+      const detail =
+        typeof apiError.response?.data?.detail === "string" ? apiError.response.data.detail : null;
+      setLoginError(detail ?? "Connexion echouee. Verifiez vos identifiants.");
+    } finally {
       setIsLoading(false);
-      // Here you would typically handle the login logic
-      console.log("Login attempt with:", { email, password });
-    }, 1500);
+    }
   };
 
   return (
@@ -136,6 +168,12 @@ export default function Login() {
                   </button>
                 </div>
               </div>
+
+              {loginError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {loginError}
+                </div>
+              )}
 
               {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between">

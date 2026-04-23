@@ -2,13 +2,27 @@ import { Link, useNavigate } from "react-router-dom";
 import { Bot, BarChart3, UsersIcon, AlertCircle, CheckCircle, Clock, TrendingUp, Home, Settings, LogOut, Layout, List, MessageSquare, Clock3, Sparkles, AlertTriangle, ArrowRight, Loader } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI } from "../api/client";
+import { clearSession, getSession } from "../utils/auth";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const currentUser = getSession();
   const [viewMode, setViewMode] = useState<"list" | "cards">("cards");
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+
+  const logout = () => {
+    clearSession();
+    navigate("/login", { replace: true });
+  };
+
+  const avatarText = (currentUser?.name || "User")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 
   // Fetch tickets from API
   const fetchTickets = async () => {
@@ -190,18 +204,21 @@ export default function Dashboard() {
           <div className="rounded-xl p-4 border border-gray-200 mb-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl text-white font-bold shadow-md flex items-center justify-center" style={{backgroundColor: '#0f0745'}}>
-                JD
+                {avatarText || "US"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                <p className="text-xs font-medium" style={{color: '#0f0745'}}>Admin</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{currentUser?.name ?? "Utilisateur"}</p>
+                <p className="text-xs font-medium" style={{color: '#0f0745'}}>{currentUser?.role ?? "User"}</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg text-white transition-all duration-200 hover:opacity-90" style={{backgroundColor: '#0f0745'}}>
                 Profile
               </button>
-              <button className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200">
+              <button
+                onClick={logout}
+                className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200"
+              >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>

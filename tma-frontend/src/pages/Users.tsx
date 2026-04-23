@@ -1,6 +1,25 @@
-import { Link } from "react-router-dom";
-import { Bot, BarChart3, AlertCircle, UsersIcon, Home, Settings, LogOut, Plus, Trash2, Edit2, Eye, Search, Filter, MoreVertical, UserCheck, UserX, Mail, Phone, Calendar, MapPin } from "lucide-react";
-import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Bot,
+  BarChart3,
+  UsersIcon,
+  Home,
+  Settings,
+  LogOut,
+  Plus,
+  Trash2,
+  Edit2,
+  Eye,
+  Search,
+  UserCheck,
+  UserX,
+  Mail,
+  Phone,
+  X,
+} from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { userAPI, type UserDto } from "../api/client";
+import { clearSession, getSession } from "../utils/auth";
 
 interface User {
   id: string;
@@ -8,108 +27,103 @@ interface User {
   email: string;
   phone: string;
   role: string;
-  status: "Active" | "Inactive" | "Pending";
-  joinDate: string;
+  status: "Active" | "Inactive";
+  joinDate: string | null;
   lastActive: string;
   department: string;
 }
 
+interface CreateUserForm {
+  prenom: string;
+  nom: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: string;
+  department: string;
+}
+
+interface ApiErrorLike {
+  response?: {
+    data?: {
+      detail?: unknown;
+    };
+  };
+}
+
+const defaultCreateUserForm: CreateUserForm = {
+  prenom: "",
+  nom: "",
+  email: "",
+  password: "",
+  phone: "",
+  role: "Technician",
+  department: "Support",
+};
+
+function splitName(fullName: string): { prenom: string; nom: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { prenom: "", nom: "" };
+  }
+  if (parts.length === 1) {
+    return { prenom: parts[0], nom: parts[0] };
+  }
+  return { prenom: parts[0], nom: parts.slice(1).join(" ") };
+}
+
+function mapDtoToUser(dto: UserDto): User {
+  return {
+    id: dto.id,
+    name: dto.name,
+    email: dto.email,
+    phone: dto.phone,
+    role: dto.role,
+    status: dto.status,
+    joinDate: dto.joinDate,
+    lastActive: dto.lastActive,
+    department: dto.department,
+  };
+}
+
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "USR-001",
-      name: "John Doe",
-      email: "john.doe@company.com",
-      phone: "+1-555-0101",
-      role: "Admin",
-      status: "Active",
-      joinDate: "2025-01-15",
-      lastActive: "Today 14:30",
-      department: "IT",
-    },
-    {
-      id: "USR-002",
-      name: "Jane Smith",
-      email: "jane.smith@company.com",
-      phone: "+1-555-0102",
-      role: "Supervisor",
-      status: "Active",
-      joinDate: "2025-02-20",
-      lastActive: "Today 09:15",
-      department: "Support",
-    },
-    {
-      id: "USR-003",
-      name: "Robert Johnson",
-      email: "robert.johnson@company.com",
-      phone: "+1-555-0103",
-      role: "Technician",
-      status: "Active",
-      joinDate: "2025-03-10",
-      lastActive: "Yesterday 16:45",
-      department: "Support",
-    },
-    {
-      id: "USR-004",
-      name: "Emily Brown",
-      email: "emily.brown@company.com",
-      phone: "+1-555-0104",
-      role: "Manager",
-      status: "Active",
-      joinDate: "2025-01-05",
-      lastActive: "Today 11:20",
-      department: "Operations",
-    },
-    {
-      id: "USR-005",
-      name: "Michael Davis",
-      email: "michael.davis@company.com",
-      phone: "+1-555-0105",
-      role: "Technician",
-      status: "Inactive",
-      joinDate: "2025-04-01",
-      lastActive: "5 days ago",
-      department: "Support",
-    },
-    {
-      id: "USR-006",
-      name: "Sarah Wilson",
-      email: "sarah.wilson@company.com",
-      phone: "+1-555-0106",
-      role: "Analyst",
-      status: "Pending",
-      joinDate: "2026-04-15",
-      lastActive: "Never",
-      department: "Analytics",
-    },
-    {
-      id: "USR-007",
-      name: "David Martinez",
-      email: "david.martinez@company.com",
-      phone: "+1-555-0107",
-      role: "Technician",
-      status: "Active",
-      joinDate: "2025-02-28",
-      lastActive: "Today 13:50",
-      department: "Support",
-    },
-    {
-      id: "USR-008",
-      name: "Lisa Anderson",
-      email: "lisa.anderson@company.com",
-      phone: "+1-555-0108",
-      role: "Supervisor",
-      status: "Active",
-      joinDate: "2025-03-05",
-      lastActive: "Today 10:30",
-      department: "Support",
-    },
-  ]);
+  const navigate = useNavigate();
+  const currentUser = getSession();
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState<CreateUserForm>(defaultCreateUserForm);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserForm, setEditUserForm] = useState<CreateUserForm>(defaultCreateUserForm);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    setIsLoadingUsers(true);
+    setLoadError(null);
+    try {
+      const data = await userAPI.list();
+      setUsers(data.map(mapDtoToUser));
+    } catch {
+      setLoadError("Impossible de charger les utilisateurs.");
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -120,17 +134,110 @@ export default function Users() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const deleteUser = (id: string) => {
-    setUsers(users.filter((u) => u.id !== id));
-    setShowDeleteConfirm(null);
+  const deleteUser = async (id: string) => {
+    setActionError(null);
+    try {
+      await userAPI.delete(id);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch {
+      setActionError("Suppression impossible pour le moment.");
+    } finally {
+      setShowDeleteConfirm(null);
+    }
   };
 
-  const toggleUserStatus = (id: string) => {
-    setUsers(
-      users.map((u) =>
-        u.id === id ? { ...u, status: u.status === "Active" ? "Inactive" : "Active" } : u
-      )
-    );
+  const toggleUserStatus = async (id: string) => {
+    setActionError(null);
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+
+    const nextStatus: "Active" | "Inactive" = user.status === "Active" ? "Inactive" : "Active";
+
+    try {
+      await userAPI.updateStatus(id, nextStatus);
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: nextStatus } : u)));
+    } catch {
+      setActionError("Changement de status impossible pour le moment.");
+    }
+  };
+
+  const handleCreateUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreateError(null);
+    setIsCreatingUser(true);
+
+    try {
+      await userAPI.create({
+        prenom: createUserForm.prenom,
+        nom: createUserForm.nom,
+        email: createUserForm.email,
+        password: createUserForm.password,
+        phone: createUserForm.phone,
+        role: createUserForm.role,
+        department: createUserForm.department,
+      });
+
+      setShowCreateModal(false);
+      setCreateUserForm(defaultCreateUserForm);
+      await loadUsers();
+    } catch (error: unknown) {
+      const apiError = error as ApiErrorLike;
+      const detail =
+        typeof apiError.response?.data?.detail === "string" ? apiError.response.data.detail : null;
+      setCreateError(typeof detail === "string" ? detail : "Creation de l'utilisateur echouee.");
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    const names = splitName(user.name);
+    setEditingUserId(user.id);
+    setEditError(null);
+    setEditUserForm({
+      prenom: names.prenom,
+      nom: names.nom,
+      email: user.email,
+      password: "",
+      phone: user.phone,
+      role: user.role,
+      department: user.department,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingUserId) {
+      return;
+    }
+
+    setEditError(null);
+    setIsUpdatingUser(true);
+    try {
+      const payload = {
+        prenom: editUserForm.prenom,
+        nom: editUserForm.nom,
+        email: editUserForm.email,
+        phone: editUserForm.phone,
+        role: editUserForm.role,
+        department: editUserForm.department,
+        ...(editUserForm.password.trim() ? { password: editUserForm.password } : {}),
+      };
+
+      await userAPI.update(editingUserId, payload);
+
+      setShowEditModal(false);
+      setEditingUserId(null);
+      await loadUsers();
+    } catch (error: unknown) {
+      const apiError = error as ApiErrorLike;
+      const detail =
+        typeof apiError.response?.data?.detail === "string" ? apiError.response.data.detail : null;
+      setEditError(typeof detail === "string" ? detail : "Modification de l'utilisateur echouee.");
+    } finally {
+      setIsUpdatingUser(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -158,6 +265,8 @@ export default function Users() {
         return "bg-green-100 text-green-700";
       case "Analyst":
         return "bg-orange-100 text-orange-700";
+      case "Client":
+        return "bg-cyan-100 text-cyan-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -175,8 +284,19 @@ export default function Users() {
     { label: "Total Users", value: users.length.toString(), color: "bg-blue-50", icon: UsersIcon, textColor: "text-blue-600" },
     { label: "Active", value: users.filter((u) => u.status === "Active").length.toString(), color: "bg-green-50", icon: UserCheck, textColor: "text-green-600" },
     { label: "Inactive", value: users.filter((u) => u.status === "Inactive").length.toString(), color: "bg-red-50", icon: UserX, textColor: "text-red-600" },
-    { label: "Pending", value: users.filter((u) => u.status === "Pending").length.toString(), color: "bg-yellow-50", icon: UsersIcon, textColor: "text-yellow-600" },
   ];
+
+  const logout = () => {
+    clearSession();
+    navigate("/login", { replace: true });
+  };
+
+  const avatarText = (currentUser?.name || "Admin")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
@@ -226,18 +346,21 @@ export default function Users() {
           <div className="rounded-xl p-4 border border-gray-200 mb-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl text-white font-bold shadow-md flex items-center justify-center" style={{backgroundColor: '#0f0745'}}>
-                JD
+                {avatarText || "AD"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                <p className="text-xs font-medium" style={{color: '#0f0745'}}>Admin</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{currentUser?.name ?? "Admin"}</p>
+                <p className="text-xs font-medium" style={{color: '#0f0745'}}>{currentUser?.role ?? "Admin"}</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg text-white transition-all duration-200 hover:opacity-90" style={{backgroundColor: '#0f0745'}}>
                 Profile
               </button>
-              <button className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200">
+              <button
+                onClick={logout}
+                className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200"
+              >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
@@ -256,7 +379,14 @@ export default function Users() {
               </h1>
               <p className="text-sm text-gray-600 mt-1">Gestion complète des utilisateurs du système</p>
             </div>
-            <button className="px-4 py-2.5 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:opacity-90 flex items-center gap-2" style={{backgroundColor: '#08052e'}}>
+            <button
+              onClick={() => {
+                setCreateError(null);
+                setShowCreateModal(true);
+              }}
+              className="px-4 py-2.5 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:opacity-90 flex items-center gap-2"
+              style={{ backgroundColor: "#08052e" }}
+            >
               <Plus className="w-5 h-5" />
               Add New User
             </button>
@@ -313,6 +443,7 @@ export default function Users() {
                   <option>Supervisor</option>
                   <option>Technician</option>
                   <option>Analyst</option>
+                  <option>Client</option>
                 </select>
               </div>
 
@@ -327,11 +458,22 @@ export default function Users() {
                   <option>All</option>
                   <option>Active</option>
                   <option>Inactive</option>
-                  <option>Pending</option>
                 </select>
               </div>
             </div>
           </div>
+
+          {loadError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
+
+          {actionError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {actionError}
+            </div>
+          )}
 
           {/* Users Table */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
@@ -349,7 +491,7 @@ export default function Users() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredUsers.map((user) => (
+                  {!isLoadingUsers && filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-blue-50/50 transition-all duration-200">
                       {/* User Info */}
                       <td className="px-6 py-4">
@@ -417,6 +559,7 @@ export default function Users() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => openEditModal(user)}
                             className="p-2 text-gray-500 hover:bg-purple-50 hover:text-purple-600 rounded-lg transition-colors"
                             title="Edit"
                           >
@@ -438,7 +581,9 @@ export default function Users() {
                                 <p className="text-xs text-gray-600 mb-4">This action cannot be undone.</p>
                                 <div className="flex gap-2">
                                   <button
-                                    onClick={() => deleteUser(user.id)}
+                                    onClick={() => {
+                                      void deleteUser(user.id);
+                                    }}
                                     className="flex-1 px-3 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors"
                                   >
                                     Delete
@@ -457,12 +602,19 @@ export default function Users() {
                       </td>
                     </tr>
                   ))}
+                  {isLoadingUsers && (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
+                        Chargement des utilisateurs...
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Empty State */}
-            {filteredUsers.length === 0 && (
+              {!isLoadingUsers && filteredUsers.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 bg-gray-50">
                 <UsersIcon className="w-12 h-12 text-gray-300 mb-4" />
                 <p className="text-gray-600 font-medium">No users found</p>
@@ -485,6 +637,287 @@ export default function Users() {
             </div>
           </div>
         </div>
+
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-gray-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                  aria-label="Close create user modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Prenom</label>
+                    <input
+                      required
+                      value={createUserForm.prenom}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, prenom: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nom</label>
+                    <input
+                      required
+                      value={createUserForm.nom}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, nom: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={createUserForm.email}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={createUserForm.password}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, password: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
+                    <input
+                      value={createUserForm.phone}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, phone: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
+                    <select
+                      value={createUserForm.role}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, role: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white"
+                    >
+                      <option>Admin</option>
+                      <option>Manager</option>
+                      <option>Supervisor</option>
+                      <option>Technician</option>
+                      <option>Analyst</option>
+                      <option>Client</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+                    <input
+                      value={createUserForm.department}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({ ...prev, department: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                {createError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {createError}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingUser}
+                    className="px-4 py-2.5 rounded-lg text-white font-semibold hover:opacity-90 disabled:opacity-60"
+                    style={{ backgroundColor: "#08052e" }}
+                  >
+                    {isCreatingUser ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-gray-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">Edit User</h2>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUserId(null);
+                  }}
+                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                  aria-label="Close edit user modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditUser} className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Prenom</label>
+                    <input
+                      required
+                      value={editUserForm.prenom}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({ ...prev, prenom: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nom</label>
+                    <input
+                      required
+                      value={editUserForm.nom}
+                      onChange={(e) => setEditUserForm((prev) => ({ ...prev, nom: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={editUserForm.email}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      New Password <span className="text-gray-500 font-normal">(optionnel)</span>
+                    </label>
+                    <input
+                      type="password"
+                      minLength={6}
+                      value={editUserForm.password}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({ ...prev, password: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
+                    <input
+                      value={editUserForm.phone}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({ ...prev, phone: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
+                    <select
+                      value={editUserForm.role}
+                      onChange={(e) => setEditUserForm((prev) => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white"
+                    >
+                      <option>Admin</option>
+                      <option>Manager</option>
+                      <option>Supervisor</option>
+                      <option>Technician</option>
+                      <option>Analyst</option>
+                      <option>Client</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+                    <input
+                      value={editUserForm.department}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({ ...prev, department: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </div>
+                </div>
+
+                {editError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {editError}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingUserId(null);
+                    }}
+                    className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingUser}
+                    className="px-4 py-2.5 rounded-lg text-white font-semibold hover:opacity-90 disabled:opacity-60"
+                    style={{ backgroundColor: "#08052e" }}
+                  >
+                    {isUpdatingUser ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
