@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Bot, Eye, EyeOff, ArrowRight, Shield, Zap, Lock } from "lucide-react";
 import { userAPI } from "../api/client";
-import { saveSession } from "../utils/auth";
+import { clearSession, saveSession } from "../utils/auth";
 
 interface ApiErrorLike {
   response?: {
@@ -14,11 +14,14 @@ interface ApiErrorLike {
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const expectedRole = searchParams.get("role");
+  const requestedNext = searchParams.get("next");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +38,32 @@ export default function Login() {
         role: response.user.role,
       });
 
-      if (response.user.role === "Admin") {
+      const isAdminUser = response.user.role === "Admin";
+      if (expectedRole === "admin" && !isAdminUser) {
+        clearSession();
+        setLoginError("Ce compte n'a pas les droits administrateur.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (expectedRole === "client" && isAdminUser) {
+        clearSession();
+        setLoginError("Connectez-vous avec un compte client pour cet acces.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (requestedNext && requestedNext.startsWith("/")) {
+        navigate(requestedNext, { replace: true });
+        return;
+      }
+
+      if (isAdminUser) {
         navigate("/users", { replace: true });
         return;
       }
 
-      navigate("/dashboard", { replace: true });
+      navigate("/tickets", { replace: true });
     } catch (error: unknown) {
       const apiError = error as ApiErrorLike;
       const detail =

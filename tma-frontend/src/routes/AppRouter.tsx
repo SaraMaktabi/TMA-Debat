@@ -17,14 +17,42 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/demo" element={<Demo />} />
-        <Route path="/tickets" element={<Tickets />} />
-        <Route path="/ticket/:id" element={<TicketDetails />} />
-        <Route path="/ticket-details/:id" element={<TicketDetailsAdmin />} />
-        <Route path="/debat/:id" element={<Debate />} />
+        <Route
+          path="/tickets"
+          element={
+            <ProtectedRoute>
+              <Tickets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ticket/:id"
+          element={
+            <ProtectedRoute>
+              <TicketDetails />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ticket-details/:id"
+          element={
+            <ProtectedRoute adminOnly>
+              <TicketDetailsAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/debat/:id"
+          element={
+            <ProtectedRoute>
+              <Debate />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminOnly>
               <Dashboard />
             </ProtectedRoute>
           }

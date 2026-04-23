@@ -504,7 +504,7 @@ export default function Users() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">{user.name}</p>
-                            <p className="text-sm text-gray-500">{user.id}</p>
+                            {/* <p className="text-sm text-gray-500">{user.id}</p> */}
                           </div>
                         </div>
                       </td>

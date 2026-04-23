@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Bot, Settings, User, Check, ArrowRight } from "lucide-react";
+import { Bot, Settings, User, Check } from "lucide-react";
 
 export default function Demo() {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ export default function Demo() {
 
             {/* CTA Button */}
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/login?role=admin&next=/users")}
               className="w-full px-4 py-2.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-[#08052e] transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
             >
               <Settings className="w-4 h-4" />
@@ -120,7 +120,7 @@ export default function Demo() {
 
             {/* CTA Button */}
             <button
-              onClick={() => navigate("/tickets")}
+              onClick={() => navigate("/login?role=client&next=/tickets")}
               className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs rounded-lg font-bold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
             >
               <User className="w-4 h-4" />

@@ -80,10 +80,10 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <Link
-              to="/tickets"
+              to="/login?role=admin&next=/users"
               className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
             >
-              Dashboard
+              Dashboard Admin
             </Link>
             <Link 
               to="/login"
@@ -224,7 +224,7 @@ export default function Home() {
 
             <div className="flex gap-4 pt-4">
               <Link
-                to="/tickets"
+                to="/login?role=client&next=/tickets"
                 className="px-6 py-3 bg-[#08052e] text-white rounded-lg font-semibold hover:bg-[#0f0745] transition-all duration-200 flex items-center gap-2 shadow-lg"
               >
                 <ArrowRight className="w-5 h-5" />
@@ -261,7 +261,7 @@ export default function Home() {
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link
-              to="/tickets"
+              to="/login?role=client&next=/tickets"
               className="px-8 py-4 bg-white text-black rounded-lg font-semibold hover:bg-gray-200 transition-all duration-200 shadow-lg flex items-center gap-2"
             >
               <Lock className="w-5 h-5" />
