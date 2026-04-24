@@ -2,6 +2,49 @@ from sqlalchemy.orm import Session
 from app.models.technicien import Technicien
 
 
+def _est_admin(tech: Technicien) -> bool:
+    competences = tech.competences if isinstance(tech.competences, dict) else {}
+    meta = competences.get("_meta", {}) if isinstance(competences.get("_meta", {}), dict) else {}
+    role = str(meta.get("role", "")).strip().lower()
+    return role == "admin"
+
+
+def _est_profil_technicien(tech: Technicien) -> bool:
+    competences = tech.competences if isinstance(tech.competences, dict) else {}
+    meta = competences.get("_meta", {}) if isinstance(competences.get("_meta", {}), dict) else {}
+    role = str(meta.get("role", "")).strip().lower()
+
+    # Les techniciens seeds n'ont souvent pas de role _meta.
+    if role == "":
+        return True
+
+    return role in {"technician", "technicien"}
+
+
+def _est_seed_technicien(tech: Technicien) -> bool:
+    competences = tech.competences if isinstance(tech.competences, dict) else {}
+    meta = competences.get("_meta", {}) if isinstance(competences.get("_meta", {}), dict) else {}
+    source = str(meta.get("source", "")).strip().lower()
+    return source == "seed_techniciens"
+
+
+def _extraire_competences_tech(competences_tech: dict) -> dict:
+    if not isinstance(competences_tech, dict):
+        return {}
+
+    competences_filtrees = {}
+    for nom, niveau in competences_tech.items():
+        if str(nom).startswith("_"):
+            continue
+        if isinstance(niveau, (int, float)):
+            competences_filtrees[str(nom)] = int(niveau)
+            continue
+        if isinstance(niveau, str) and niveau.strip().isdigit():
+            competences_filtrees[str(nom)] = int(niveau.strip())
+
+    return competences_filtrees
+
+
 def _normaliser_analyse(analyse_nlp):
     if isinstance(analyse_nlp, list):
         return {
@@ -53,10 +96,11 @@ def _deduire_tags_texte(texte: str):
 def _calculer_score_technicien(competences_tech: dict, technologies: list[str], systemes_impactes: list[str]):
     score = 0
     raisons = []
+    competences_utiles = _extraire_competences_tech(competences_tech)
 
     for tech_demandee in technologies:
         tech_lower = tech_demandee.lower()
-        for comp, niveau in competences_tech.items():
+        for comp, niveau in competences_utiles.items():
             comp_lower = str(comp).lower()
             if tech_lower in comp_lower or comp_lower in tech_lower:
                 gain = int(niveau) * 10
@@ -65,13 +109,13 @@ def _calculer_score_technicien(competences_tech: dict, technologies: list[str], 
 
     for systeme in systemes_impactes:
         systeme_lower = systeme.lower()
-        if systeme_lower == "frontend" and any(c in competences_tech for c in ["React", "Vue", "Angular", "Tailwind", "TypeScript"]):
+        if systeme_lower == "frontend" and any(c in competences_utiles for c in ["React", "Vue", "Angular", "Tailwind", "TypeScript"]):
             score += 30
             raisons.append("Expert frontend (+30)")
-        if systeme_lower == "backend" and any(c in competences_tech for c in ["Python", "FastAPI", "Node.js", "Java"]):
+        if systeme_lower == "backend" and any(c in competences_utiles for c in ["Python", "FastAPI", "Node.js", "Java"]):
             score += 30
             raisons.append("Expert backend (+30)")
-        if systeme_lower == "database" and any(c in competences_tech for c in ["PostgreSQL", "SQL", "Oracle"]):
+        if systeme_lower == "database" and any(c in competences_utiles for c in ["PostgreSQL", "SQL", "Oracle"]):
             score += 30
             raisons.append("Expert base de donnees (+30)")
 
@@ -79,12 +123,13 @@ def _calculer_score_technicien(competences_tech: dict, technologies: list[str], 
 
 
 def _extraire_top_competences(competences_tech: dict, limit: int = 4):
-    if not competences_tech:
+    competences_utiles = _extraire_competences_tech(competences_tech)
+    if not competences_utiles:
         return []
     try:
-        items = sorted(competences_tech.items(), key=lambda item: item[1], reverse=True)
+        items = sorted(competences_utiles.items(), key=lambda item: item[1], reverse=True)
     except Exception:
-        items = list(competences_tech.items())
+        items = list(competences_utiles.items())
     return [f"{comp} ({niveau})" for comp, niveau in items[:limit]]
 
 
@@ -107,6 +152,8 @@ def recommander_techniciens(analyse_nlp, db: Session, limit=2):
 
     scores = []
     for tech in tous_techniciens:
+        if _est_admin(tech) or not _est_profil_technicien(tech) or not _est_seed_technicien(tech):
+            continue
         competences_tech = tech.competences or {}
         score, raisons = _calculer_score_technicien(competences_tech, technologies, systemes_impactes)
         scores.append({"technicien": tech, "score": score, "raisons": raisons})
@@ -134,6 +181,8 @@ def recommander_techniciens_detaillees(analyse_nlp, db: Session, limit=3):
 
     scores = []
     for tech in tous_techniciens:
+        if _est_admin(tech) or not _est_profil_technicien(tech) or not _est_seed_technicien(tech):
+            continue
         competences_tech = tech.competences or {}
         score, raisons = _calculer_score_technicien(competences_tech, technologies, systemes_impactes)
         scores.append({

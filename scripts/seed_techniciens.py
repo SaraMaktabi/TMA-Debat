@@ -6,6 +6,9 @@ from app.database import SessionLocal
 from app.models.technicien import Technicien
 import uuid
 
+
+SEED_SOURCE = "seed_techniciens"
+
 techniciens_data = [
     {
         "nom": "Martin",
@@ -37,30 +40,61 @@ techniciens_data = [
     },
 ]
 
+
+def _build_competences(competences: dict) -> dict:
+    base = competences if isinstance(competences, dict) else {}
+    meta = {
+        "role": "Technician",
+        "source": SEED_SOURCE,
+    }
+    return {**base, "_meta": meta}
+
 def seed():
     db = SessionLocal()
     try:
-        # Vider la table existante
-        deleted = db.query(Technicien).delete()
-        print(f" {deleted} techniciens supprimés")
-        
-        # Insérer les nouveaux
+        # Insérer/mettre à jour seulement les profils seed techniciens
+        inserted = 0
+        updated = 0
+
         for data in techniciens_data:
+            email = data["email"].strip().lower()
+            existing = db.query(Technicien).filter(Technicien.email == email).first()
+
+            if existing:
+                existing.nom = data["nom"]
+                existing.prenom = data["prenom"]
+                existing.cv_texte = data["cv_texte"]
+                existing.competences = _build_competences(data["competences"])
+                existing.disponibilite = True
+                existing.charge_actuelle = 0
+                updated += 1
+                continue
+
             tech = Technicien(
                 id=uuid.uuid4(),
-                **data,
+                nom=data["nom"],
+                prenom=data["prenom"],
+                email=email,
+                competences=_build_competences(data["competences"]),
+                cv_texte=data["cv_texte"],
                 disponibilite=True,
-                charge_actuelle=0
+                charge_actuelle=0,
             )
             db.add(tech)
+            inserted += 1
         
         db.commit()
-        print(f" {len(techniciens_data)} techniciens insérés")
+        print(f" {inserted} techniciens insérés")
+        print(f" {updated} techniciens mis à jour")
         
-        # Afficher la liste
+        # Afficher uniquement les profils seed techniciens
         techs = db.query(Technicien).all()
-        print("\n Liste des techniciens:")
+        print("\n Liste des techniciens seed:")
         for t in techs:
+            competences = t.competences if isinstance(t.competences, dict) else {}
+            meta = competences.get("_meta", {}) if isinstance(competences.get("_meta", {}), dict) else {}
+            if str(meta.get("source", "")).strip().lower() != SEED_SOURCE:
+                continue
             print(f"   - {t.prenom} {t.nom} ({t.email})")
             
     except Exception as e:
