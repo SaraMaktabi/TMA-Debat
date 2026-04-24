@@ -72,6 +72,7 @@ async def analyser_et_scorer_ticket_background(ticket_id: uuid.UUID, titre: str,
     finally:
         db.close()
 
+@router.post("")
 @router.post("/")
 async def creer_ticket(
     ticket_data: TicketCreate = Body(...),
@@ -161,6 +162,7 @@ async def get_recommandations(ticket_id: str, db: Session = Depends(get_db)):
 
     return recommander_techniciens_detaillees(analyse_nlp, db, limit=3)
 
+@router.get("")
 @router.get("/")
 async def list_tickets(created_by_user_id: str | None = None, db: Session = Depends(get_db)):
     """Liste tous les tickets"""

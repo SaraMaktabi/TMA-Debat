@@ -15,13 +15,13 @@ export const ticketAPI = {
     application: string;
     created_by_user_id?: string;
   }) => {
-    const response = await api.post("/api/tickets", ticketData);
+    const response = await api.post("/api/tickets/", ticketData);
     return response.data;
   },
 
   // Récupérer tous les tickets
   list: async (params?: { createdByUserId?: string }) => {
-    const response = await api.get("/api/tickets", {
+    const response = await api.get("/api/tickets/", {
       params: {
         created_by_user_id: params?.createdByUserId,
       },
