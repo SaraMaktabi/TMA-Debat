@@ -7,17 +7,17 @@ from app.models.debat_temp import DebatTemp
 from app.agents.profil import recommander_techniciens
 from app.agents.orchestrateur import OrchestrateurDebat
 from app.agents.orchestrateur_hybride import OrchestrateurHybride
-from app.agents.juge import evaluer_debat
+from app.agents.juge_independant import evaluer_debat
 import uuid
 from datetime import datetime
 
 router = APIRouter()
 
 # ============================================
-# STOCKAGE DES SESSIONS
+# SESSIONS EN MÉMOIRE (pour accès rapide)
 # ============================================
-sessions = {}           # Sessions classiques (GPT seul)
-sessions_hybrides = {}  # Sessions hybrides (GPT + Qwen3)
+sessions_classiques = {}
+sessions_hybrides = {}
 
 
 # ============================================
@@ -58,7 +58,7 @@ async def lancer_debat(ticket_id: str, db: Session = Depends(get_db)):
     db.refresh(session)
     
     orchestrateur = OrchestrateurDebat(ticket, techniciens)
-    sessions[str(session.id)] = orchestrateur
+    sessions_classiques[str(session.id)] = orchestrateur
     
     premier_agent = techniciens[0]
     message = await orchestrateur.generer_message(premier_agent)
@@ -88,15 +88,17 @@ async def get_debat(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
-    type_debat = "classique" if session_id in sessions else "hybride"
-    orchestrateur = sessions.get(session_id) or sessions_hybrides.get(session_id)
+    orchestrateur = sessions_classiques.get(session_id) or sessions_hybrides.get(session_id)
+    type_debat = "classique" if session_id in sessions_classiques else "hybride"
     
     return {
         "session_id": session_id,
         "type": type_debat,
         "statut": session.statut,
         "historique": session.messages,
+        "messages_interactifs": getattr(session, 'messages_interactifs', []),
         "proposition_juge": session.proposition_juge,
+        "decision_finale": getattr(session, 'decision_finale', None),
         "est_termine": orchestrateur.est_termine() if orchestrateur else False
     }
 
@@ -105,11 +107,13 @@ async def get_debat(session_id: str, db: Session = Depends(get_db)):
 async def repondre_debat(session_id: str, db: Session = Depends(get_db)):
     """Génère la réponse du prochain technicien (session classique)"""
     
-    if session_id not in sessions:
+    orchestrateur = sessions_classiques.get(session_id)
+    if not orchestrateur:
         raise HTTPException(404, "Session classique non trouvée")
     
-    orchestrateur = sessions[session_id]
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
     
     if orchestrateur.est_termine():
         return {"message": "Débat terminé", "historique": orchestrateur.historique}
@@ -137,11 +141,13 @@ async def repondre_debat(session_id: str, db: Session = Depends(get_db)):
 async def terminer_debat(session_id: str, db: Session = Depends(get_db)):
     """Termine le débat classique et demande au juge"""
     
-    if session_id not in sessions:
+    orchestrateur = sessions_classiques.get(session_id)
+    if not orchestrateur:
         raise HTTPException(404, "Session classique non trouvée")
     
-    orchestrateur = sessions[session_id]
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
     
     proposition = await evaluer_debat(
         orchestrateur.ticket,
@@ -186,8 +192,8 @@ async def valider_decision(session_id: str, decision: dict, db: Session = Depend
     }
     db.commit()
     
-    if session_id in sessions:
-        del sessions[session_id]
+    if session_id in sessions_classiques:
+        del sessions_classiques[session_id]
     
     return {"message": "Ticket affecté avec succès"}
 
@@ -203,8 +209,8 @@ async def annuler_debat(session_id: str, db: Session = Depends(get_db)):
     session.statut = "ANNULE"
     db.commit()
     
-    if session_id in sessions:
-        del sessions[session_id]
+    if session_id in sessions_classiques:
+        del sessions_classiques[session_id]
     
     return {"message": "Débat annulé"}
 
@@ -284,7 +290,9 @@ async def get_debat_hybride(session_id: str, db: Session = Depends(get_db)):
         "type": "hybride",
         "statut": session.statut,
         "historique": session.messages,
+        "messages_interactifs": getattr(session, 'messages_interactifs', []),
         "proposition_juge": session.proposition_juge,
+        "decision_finale": getattr(session, 'decision_finale', None),
         "est_termine": orchestrateur.est_termine() if orchestrateur else False
     }
 
@@ -293,11 +301,13 @@ async def get_debat_hybride(session_id: str, db: Session = Depends(get_db)):
 async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db)):
     """Génère la réponse du prochain technicien (version hybride)"""
     
-    if session_id not in sessions_hybrides:
+    orchestrateur = sessions_hybrides.get(session_id)
+    if not orchestrateur:
         raise HTTPException(404, "Session hybride non trouvée")
     
-    orchestrateur = sessions_hybrides[session_id]
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
     
     if orchestrateur.est_termine():
         return {"message": "Débat terminé", "historique": orchestrateur.historique}
@@ -325,12 +335,11 @@ async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db))
 async def terminer_debat_hybride(session_id: str, db: Session = Depends(get_db)):
     """Termine le débat hybride et demande au juge de décider"""
     
-    if session_id not in sessions_hybrides:
+    orchestrateur = sessions_hybrides.get(session_id)
+    if not orchestrateur:
         raise HTTPException(404, "Session hybride non trouvée")
     
-    orchestrateur = sessions_hybrides[session_id]
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
-    
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
     
@@ -398,3 +407,156 @@ async def annuler_debat_hybride(session_id: str, db: Session = Depends(get_db)):
         del sessions_hybrides[session_id]
     
     return {"message": "Débat hybride annulé"}
+
+
+# ============================================
+# ROUTES POUR DÉBAT INTERACTIF (Admin peut poser des questions)
+# ============================================
+
+@router.post("/hybride/{session_id}/question")
+async def poser_question_admin(
+    session_id: str, 
+    question: dict, 
+    db: Session = Depends(get_db)
+):
+    """L'admin pose une question aux deux techniciens"""
+    
+    orchestrateur = sessions_hybrides.get(session_id)
+    if not orchestrateur:
+        raise HTTPException(404, "Session hybride non trouvée")
+    
+    session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
+    
+    texte_question = question.get("question", "")
+    
+    # Récupérer ou initialiser messages_interactifs
+    messages_interactifs = []
+    if hasattr(session, 'messages_interactifs') and session.messages_interactifs:
+        messages_interactifs = session.messages_interactifs
+    
+    messages_interactifs.append({
+        "type": "admin_question",
+        "agent_nom": "Administrateur",
+        "contenu": texte_question,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    
+    # Les deux agents répondent à la question
+    reponses = []
+    
+    for agent in orchestrateur.techniciens:
+        reponse = await orchestrateur.generer_message(agent, question_context=texte_question)
+        reponse_msg = {
+            "type": "agent_reponse",
+            "agent_id": str(agent.id),
+            "agent_nom": f"{agent.prenom} {agent.nom}",
+            "contenu": reponse,
+            "llm": "GPT-4o-mini" if agent.prenom == "Sophie" else "Qwen3-8B",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        messages_interactifs.append(reponse_msg)
+        reponses.append(reponse_msg)
+        
+        await orchestrateur.ajouter_message(agent, f"[RÉPONSE À QUESTION] {reponse}")
+    
+    session.messages_interactifs = messages_interactifs
+    session.messages = orchestrateur.historique
+    db.commit()
+    
+    return {
+        "question": texte_question,
+        "reponses": reponses
+    }
+
+
+@router.post("/hybride/{session_id}/continue")
+async def continuer_debat(session_id: str, db: Session = Depends(get_db)):
+    """Admin demande aux agents de continuer le débat normalement"""
+    
+    orchestrateur = sessions_hybrides.get(session_id)
+    if not orchestrateur:
+        raise HTTPException(404, "Session hybride non trouvée")
+    
+    return await repondre_debat_hybride(session_id, db)
+
+
+@router.post("/hybride/{session_id}/juge")
+async def demander_juge(session_id: str, db: Session = Depends(get_db)):
+    """Admin demande au juge de trancher (analyse TOUT l'historique)"""
+    
+    orchestrateur = sessions_hybrides.get(session_id)
+    if not orchestrateur:
+        raise HTTPException(404, "Session hybride non trouvée")
+    
+    session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
+    
+    historique_complet = (orchestrateur.historique or [])
+    if hasattr(session, 'messages_interactifs') and session.messages_interactifs:
+        historique_complet = historique_complet + session.messages_interactifs
+    
+    proposition = await evaluer_debat(
+        orchestrateur.ticket,
+        historique_complet,
+        orchestrateur.techniciens
+    )
+    
+    session.statut = "EN_ATTENTE_VALIDATION"
+    session.proposition_juge = proposition
+    db.commit()
+    
+    return {
+        "proposition": proposition,
+        "historique_complet": historique_complet
+    }
+
+
+@router.post("/hybride/{session_id}/valider_final")
+async def valider_final(session_id: str, decision: dict, db: Session = Depends(get_db)):
+    """Validation finale avec STOCKAGE DÉFINITIF en base"""
+    
+    session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session non trouvée")
+    
+    technicien_id = decision.get("technicien_id")
+    technicien_nom = decision.get("technicien_nom", "")
+    raison = decision.get("raison", "Validation automatique")
+    admin_nom = decision.get("admin_nom", "admin")
+    
+    ticket = db.query(Ticket).filter(Ticket.id == session.ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+    
+    historique_complet = {
+        "messages_auto": session.messages,
+        "messages_interactifs": session.messages_interactifs if hasattr(session, 'messages_interactifs') else [],
+        "proposition_juge": session.proposition_juge
+    }
+    
+    decision_finale = {
+        "technicien_assigne_id": technicien_id,
+        "technicien_nom": technicien_nom,
+        "raison": raison,
+        "valide_par": admin_nom,
+        "date_validation": datetime.utcnow().isoformat(),
+        "historique_complet": historique_complet
+    }
+    
+    session.decision_finale = decision_finale
+    session.statut = "VALIDE"
+    ticket.technicien_assigne_id = technicien_id
+    ticket.statut = "AFFECTE"
+    
+    db.commit()
+    
+    if session_id in sessions_hybrides:
+        del sessions_hybrides[session_id]
+    
+    return {
+        "message": "Ticket affecté avec succès - Décision finalisée et stockée",
+        "decision_finale": decision_finale
+    }
