@@ -74,6 +74,97 @@ export const ticketAPI = {
   },
 };
 
+export type DebateMode = "classique" | "hybride";
+
+export interface DebateTechnician {
+  id: string;
+  nom: string;
+  llm?: string;
+}
+
+export interface DebateMessage {
+  agent_id?: string;
+  agent_nom: string;
+  contenu: string;
+  tour?: number;
+  timestamp?: string;
+  llm?: string;
+}
+
+export interface DebateJudgeProposal {
+  gagnant_id?: string;
+  gagnant_nom?: string;
+  scores?: Record<string, number>;
+  justification?: string;
+  recommandation?: string;
+  [key: string]: unknown;
+}
+
+export const debatAPI = {
+  lancer: async (ticketId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/lancer-hybride/${ticketId}` : `/api/debat/lancer/${ticketId}`;
+    const response = await api.post(endpoint);
+    return response.data as {
+      session_id: string;
+      type: string;
+      ticket_id: string;
+      ticket_titre: string;
+      techniciens: DebateTechnician[];
+      historique: DebateMessage[];
+    };
+  },
+
+  get: async (sessionId: string) => {
+    const response = await api.get(`/api/debat/${sessionId}`);
+    return response.data as {
+      session_id: string;
+      type: string;
+      statut: string;
+      historique: DebateMessage[];
+      proposition_juge?: DebateJudgeProposal | null;
+      est_termine: boolean;
+    };
+  },
+
+  repondre: async (sessionId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/repondre` : `/api/debat/${sessionId}/repondre`;
+    const response = await api.post(endpoint);
+    return response.data as {
+      agent?: string;
+      llm?: string;
+      message?: string;
+      tour?: number;
+      historique: DebateMessage[];
+      est_termine?: boolean;
+    };
+  },
+
+  terminer: async (sessionId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/terminer` : `/api/debat/${sessionId}/terminer`;
+    const response = await api.post(endpoint);
+    return response.data as {
+      proposition: DebateJudgeProposal;
+      historique: DebateMessage[];
+    };
+  },
+
+  valider: async (
+    sessionId: string,
+    decision: { technicien_id: string; admin_nom?: string; raison?: string },
+    mode: DebateMode = "classique"
+  ) => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/valider` : `/api/debat/${sessionId}/valider`;
+    const response = await api.post(endpoint, decision);
+    return response.data as { message: string };
+  },
+
+  annuler: async (sessionId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/annuler` : `/api/debat/${sessionId}/annuler`;
+    const response = await api.post(endpoint);
+    return response.data as { message: string };
+  },
+};
+
 // ===== API USERS =====
 export interface UserDto {
   id: string;

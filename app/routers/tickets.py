@@ -21,6 +21,13 @@ class TicketCreate(BaseModel):
 
 router = APIRouter()
 
+
+def _normalize_ticket_status(statut: str | None) -> str:
+    """Normalise les anciens statuts pour garder une logique cohérente côté produit."""
+    if statut == "NOUVEAU":
+        return "OUVERT"
+    return statut or "OUVERT"
+
 # Fonction d'analyse en arrière-plan (NLP + Score)
 async def analyser_et_scorer_ticket_background(ticket_id: uuid.UUID, titre: str, description: str, priorite: str, environnement: str):
     from app.database import SessionLocal
@@ -86,7 +93,7 @@ async def creer_ticket(
         priorite=ticket_data.priorite,
         environnement=ticket_data.environnement,
         application=ticket_data.application,
-        statut="NOUVEAU",
+        statut="OUVERT",
         created_by_user_id=created_by_user_uuid,
         created_at=datetime.utcnow()
     )
@@ -173,7 +180,7 @@ async def list_tickets(created_by_user_id: str | None = None, db: Session = Depe
             "titre": t.titre,
             "description": t.description,
             "priorite": t.priorite,
-            "statut": t.statut,
+            "statut": _normalize_ticket_status(t.statut),
             "score": t.score_difficulte,
             "application": t.application,
             "environnement": t.environnement,
@@ -216,7 +223,7 @@ async def get_ticket(
         "priorite": ticket.priorite, 
         "environnement": ticket.environnement,
         "application": ticket.application,
-        "statut": ticket.statut, 
+        "statut": _normalize_ticket_status(ticket.statut), 
         "score": ticket.score_difficulte, 
         "facteurs": ticket.facteurs_score,
         "analyse_nlp": ticket.analyse_nlp,

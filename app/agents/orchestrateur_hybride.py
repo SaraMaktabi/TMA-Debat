@@ -3,6 +3,7 @@ Orchestrateur de débat hybride : GPT-4o-mini (cloud) + Qwen3 (local via Ollama)
 """
 import aiohttp
 import json
+import random
 from openai import OpenAI
 from app.core.config import config
 
@@ -17,6 +18,19 @@ class OrchestrateurHybride:
         self.openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
         self.ollama_url = "http://localhost:11434/api/generate"
         self.qwen_model = "qwen3:8b"
+        self.llm_by_agent_id = {}
+        self._assigner_llm_aleatoires()
+
+    def _assigner_llm_aleatoires(self):
+        """Assigne GPT/Qwen aléatoirement aux techniciens au démarrage de la session."""
+        llms = ["GPT-4o-mini", "Qwen3-8B"]
+        random.shuffle(llms)
+
+        for index, technicien in enumerate(self.techniciens):
+            self.llm_by_agent_id[str(technicien.id)] = llms[index % len(llms)]
+
+    def get_llm_for_technicien(self, technicien) -> str:
+        return self.llm_by_agent_id.get(str(technicien.id), "GPT-4o-mini")
         
     async def generer_message(self, technicien) -> str:
         historique_texte = self.formater_historique()
@@ -43,7 +57,8 @@ RÈGLES:
 
 Réponse:
 """
-        if technicien.prenom == "Sophie":
+        llm = self.get_llm_for_technicien(technicien)
+        if llm == "GPT-4o-mini":
             return await self._appel_gpt(prompt)
         else:
             return await self._appel_qwen(prompt)
@@ -96,7 +111,7 @@ Réponse:
             "contenu": contenu,
             "tour": self.tour_actuel,
             "timestamp": datetime.now().isoformat(),
-            "llm": "GPT-4o-mini" if technicien.prenom == "Sophie" else "Qwen3-8B"
+            "llm": self.get_llm_for_technicien(technicien)
         })
     
     def prochain_agent(self):

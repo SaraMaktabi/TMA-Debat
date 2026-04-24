@@ -83,7 +83,8 @@ export default function Tickets() {
   // Fonction pour obtenir le libellé du statut
   const getStatusLabel = (statut: string) => {
     switch (statut) {
-      case "NOUVEAU": return { label: "Nouveau", color: "bg-blue-100 text-blue-700" };
+      case "OUVERT":
+      case "NOUVEAU": return { label: "Ouvert", color: "bg-blue-100 text-blue-700" };
       case "EN_ANALYSE": return { label: "En analyse", color: "bg-yellow-100 text-yellow-700" };
       case "AFFECTE": return { label: "Affecté", color: "bg-green-100 text-green-700" };
       case "RESOLU": return { label: "Résolu", color: "bg-gray-100 text-gray-700" };

@@ -152,7 +152,8 @@ export default function TicketDetailsAdmin() {
 
   const getStatusStyles = (statut: string) => {
     switch (statut) {
-      case "NOUVEAU": return { bg: "bg-blue-100", text: "text-blue-700", label: "NOUVEAU", Icon: Tag };
+      case "OUVERT":
+      case "NOUVEAU": return { bg: "bg-blue-100", text: "text-blue-700", label: "OUVERT", Icon: Tag };
       case "EN_ANALYSE": return { bg: "bg-yellow-100", text: "text-yellow-700", label: "EN ANALYSE", Icon: Activity };
       case "AFFECTE": return { bg: "bg-purple-100", text: "text-purple-700", label: "AFFECTÉ", Icon: UsersIcon };
       case "RESOLU": return { bg: "bg-green-100", text: "text-green-700", label: "RÉSOLU", Icon: CheckCircle };
@@ -241,8 +242,8 @@ export default function TicketDetailsAdmin() {
   const statusStyle = getStatusStyles(ticket.statut);
   const scoreStyle = getScoreColor(ticket.score_difficulte);
   const hasScore = ticket.score_difficulte !== null && ticket.score_difficulte !== undefined;
-  const analysisDone = ticket.statut === "RESOLU" || !!ticket.analyse_nlp || hasScore;
-  const analysisLabel = analysisDone ? "Résolue" : "En cours";
+  const analysisDone = !!ticket.analyse_nlp && hasScore;
+  const analysisLabel = analysisDone ? "Terminée" : "En cours";
 
   return (
     <div className="min-h-screen w-full flex bg-white">
@@ -646,6 +647,14 @@ export default function TicketDetailsAdmin() {
                 >
                   <Clock size={18} />
                   Actualiser
+                </button>
+
+                <button
+                  onClick={() => navigate(`/debat/${ticket.id}`)}
+                  className="w-full mt-3 px-4 py-3 bg-white border border-gray-200 text-[#1a1545] font-semibold rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={18} />
+                  Ouvrir débat IA
                 </button>
               </div>
 

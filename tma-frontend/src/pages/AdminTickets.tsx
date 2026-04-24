@@ -28,7 +28,7 @@ type AdminTicket = {
   titre: string;
   description?: string;
   priorite: "P1" | "P2" | "P3" | "P4" | string;
-  statut: "NOUVEAU" | "EN_ANALYSE" | "AFFECTE" | "RESOLU" | string;
+  statut: "OUVERT" | "NOUVEAU" | "EN_ANALYSE" | "AFFECTE" | "RESOLU" | string;
   score_difficulte?: number | null;
   score?: number | null;
   created_at?: string | null;
@@ -37,6 +37,8 @@ type AdminTicket = {
 };
 
 type TimeFilter = "7d" | "30d" | "90d" | "all";
+
+const normalizeTicketStatus = (statut: string) => (statut === "NOUVEAU" ? "OUVERT" : statut);
 
 export default function AdminTickets() {
   const navigate = useNavigate();
@@ -132,7 +134,8 @@ export default function AdminTickets() {
 
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticket) => {
-      const statusOk = statusFilter === "ALL" || ticket.statut === statusFilter;
+      const normalizedStatus = normalizeTicketStatus(ticket.statut);
+      const statusOk = statusFilter === "ALL" || normalizedStatus === statusFilter;
       const periodOk = isInPeriod(ticket.created_at, timeFilter);
       const query = searchTerm.trim().toLowerCase();
       const searchOk =
@@ -154,9 +157,10 @@ export default function AdminTickets() {
     };
 
     filteredTickets.forEach((ticket) => {
-      if (ticket.statut === "NOUVEAU") values.nouveau += 1;
-      if (ticket.statut === "EN_ANALYSE" || ticket.statut === "AFFECTE") values.enCours += 1;
-      if (ticket.statut === "RESOLU") values.resolu += 1;
+      const normalizedStatus = normalizeTicketStatus(ticket.statut);
+      if (normalizedStatus === "OUVERT") values.nouveau += 1;
+      if (normalizedStatus === "EN_ANALYSE" || normalizedStatus === "AFFECTE") values.enCours += 1;
+      if (normalizedStatus === "RESOLU") values.resolu += 1;
       if (ticket.score_difficulte === null || ticket.score_difficulte === undefined) values.pendingScore += 1;
     });
 
@@ -205,9 +209,9 @@ export default function AdminTickets() {
   };
 
   const getStatusStyles = (statut: string) => {
-    switch (statut) {
-      case "NOUVEAU":
-        return { bg: "bg-blue-100", text: "text-blue-700", label: "Nouveau" };
+    switch (normalizeTicketStatus(statut)) {
+      case "OUVERT":
+        return { bg: "bg-blue-100", text: "text-blue-700", label: "Ouvert" };
       case "EN_ANALYSE":
         return { bg: "bg-yellow-100", text: "text-yellow-700", label: "En analyse" };
       case "AFFECTE":
@@ -328,7 +332,7 @@ export default function AdminTickets() {
               className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm"
             >
               <option value="ALL">Tous statuts</option>
-              <option value="NOUVEAU">Nouveau</option>
+              <option value="OUVERT">Ouvert</option>
               <option value="EN_ANALYSE">En analyse</option>
               <option value="AFFECTE">Affecte</option>
               <option value="RESOLU">Resolue</option>
@@ -368,7 +372,7 @@ export default function AdminTickets() {
               <p className="text-2xl font-bold text-[#1a1545]">{counts.total}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500 font-semibold">Nouveaux</p>
+              <p className="text-xs text-gray-500 font-semibold">Ouverts</p>
               <p className="text-2xl font-bold text-[#1a1545]">{counts.nouveau}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -467,7 +471,7 @@ export default function AdminTickets() {
                 ) : (
                   filteredTickets.map((ticket) => {
                     const priorityStyle = getPriorityStyles(ticket.priorite);
-                    const statusStyle = getStatusStyles(ticket.statut);
+                    const statusStyle = getStatusStyles(normalizeTicketStatus(ticket.statut));
                     const PriorityIcon = priorityStyle.Icon;
 
                     return (
@@ -553,7 +557,7 @@ export default function AdminTickets() {
                     ) : (
                       filteredTickets.map((ticket) => {
                         const priorityStyle = getPriorityStyles(ticket.priorite);
-                        const statusStyle = getStatusStyles(ticket.statut);
+                        const statusStyle = getStatusStyles(normalizeTicketStatus(ticket.statut));
                         const PriorityIcon = priorityStyle.Icon;
 
                         return (

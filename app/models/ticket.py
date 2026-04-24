@@ -13,7 +13,7 @@ class Ticket(Base):
     priorite = Column(String(10))
     environnement = Column(String(20))
     application = Column(String(100))
-    statut = Column(String(50), default="NOUVEAU")
+    statut = Column(String(50), default="OUVERT")
     score_difficulte = Column(Integer, nullable=True)
     facteurs_score = Column(JSON, nullable=True)
     analyse_nlp = Column(JSON, nullable=True)

@@ -83,7 +83,8 @@ export default function TicketDetails() {
 
   const getStatusLabel = (statut: string) => {
     switch (statut) {
-      case "NOUVEAU": return { Icon: Tag, label: "Nouveau", color: "bg-blue-100 text-blue-700" };
+      case "OUVERT":
+      case "NOUVEAU": return { Icon: Tag, label: "Ouvert", color: "bg-blue-100 text-blue-700" };
       case "EN_ANALYSE": return { Icon: Search, label: "En analyse", color: "bg-yellow-100 text-yellow-700" };
       case "AFFECTE": return { Icon: Users, label: "Affecté", color: "bg-purple-100 text-purple-700" };
       case "RESOLU": return { Icon: CheckCircle, label: "Résolu", color: "bg-green-100 text-green-700" };

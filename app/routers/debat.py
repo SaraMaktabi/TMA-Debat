@@ -20,6 +20,39 @@ sessions = {}           # Sessions classiques (GPT seul)
 sessions_hybrides = {}  # Sessions hybrides (GPT + Qwen3)
 
 
+def _resolve_technicien_for_validation(session: DebatTemp, decision: dict, db: Session):
+    """Résout de manière robuste le technicien gagnant à affecter au ticket."""
+    technicien_id_raw = decision.get("technicien_id")
+
+    # 1) Priorité à l'ID explicite envoyé par le frontend
+    if technicien_id_raw:
+        try:
+            technicien_uuid = uuid.UUID(str(technicien_id_raw))
+            technicien = db.query(Technicien).filter(Technicien.id == technicien_uuid).first()
+            if technicien:
+                return technicien
+        except (ValueError, TypeError):
+            pass
+
+    # 2) Fallback: retrouver le gagnant par nom depuis la proposition du juge
+    proposition = session.proposition_juge or {}
+    gagnant_nom = proposition.get("gagnant_nom")
+
+    if isinstance(gagnant_nom, str) and gagnant_nom.strip():
+        nom_complet = gagnant_nom.strip().lower()
+        techniciens = db.query(Technicien).all()
+        for tech in techniciens:
+            full_name = f"{tech.prenom} {tech.nom}".strip().lower()
+            if full_name == nom_complet:
+                return tech
+
+    # 3) Aucune correspondance fiable
+    raise HTTPException(
+        status_code=400,
+        detail="Technicien gagnant introuvable. Vérifiez la proposition du juge avant validation.",
+    )
+
+
 # ============================================
 # ROUTES CLASSIQUES (GPT-4o-mini uniquement)
 # ============================================
@@ -167,14 +200,15 @@ async def valider_decision(session_id: str, decision: dict, db: Session = Depend
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
-    technicien_id = decision.get("technicien_id")
     raison = decision.get("raison", "Validation automatique")
     
     ticket = db.query(Ticket).filter(Ticket.id == session.ticket_id).first()
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
+
+    technicien = _resolve_technicien_for_validation(session, decision, db)
     
-    ticket.technicien_assigne_id = technicien_id
+    ticket.technicien_assigne_id = technicien.id
     ticket.statut = "AFFECTE"
     
     session.statut = "VALIDE"
@@ -262,8 +296,8 @@ async def lancer_debat_hybride(ticket_id: str, db: Session = Depends(get_db)):
         "ticket_id": str(ticket.id),
         "ticket_titre": ticket.titre,
         "techniciens": [
-            {"id": str(t.id), "nom": f"{t.prenom} {t.nom}", "llm": "GPT-4o-mini" if i == 0 else "Qwen3-8B"}
-            for i, t in enumerate(techniciens)
+            {"id": str(t.id), "nom": f"{t.prenom} {t.nom}", "llm": orchestrateur.get_llm_for_technicien(t)}
+            for t in techniciens
         ],
         "historique": orchestrateur.historique
     }
@@ -313,7 +347,7 @@ async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db))
     
     return {
         "agent": f"{prochain.prenom} {prochain.nom}",
-        "llm": "GPT-4o-mini" if prochain.prenom == "Sophie" else "Qwen3-8B",
+        "llm": orchestrateur.get_llm_for_technicien(prochain),
         "message": message,
         "tour": orchestrateur.tour_actuel,
         "historique": orchestrateur.historique,
@@ -358,14 +392,15 @@ async def valider_debat_hybride(session_id: str, decision: dict, db: Session = D
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
-    technicien_id = decision.get("technicien_id")
     raison = decision.get("raison", "Validation automatique")
     
     ticket = db.query(Ticket).filter(Ticket.id == session.ticket_id).first()
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
+
+    technicien = _resolve_technicien_for_validation(session, decision, db)
     
-    ticket.technicien_assigne_id = technicien_id
+    ticket.technicien_assigne_id = technicien.id
     ticket.statut = "AFFECTE"
     
     session.statut = "VALIDE"
