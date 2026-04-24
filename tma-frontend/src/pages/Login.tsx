@@ -59,7 +59,7 @@ export default function Login() {
       }
 
       if (isAdminUser) {
-        navigate("/users", { replace: true });
+        navigate("/dashboard", { replace: true });
         return;
       }
 
