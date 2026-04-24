@@ -41,6 +41,8 @@ interface CreateUserForm {
   phone: string;
   role: string;
   department: string;
+  cv_texte: string;
+  competences: string;
 }
 
 interface ApiErrorLike {
@@ -57,8 +59,10 @@ const defaultCreateUserForm: CreateUserForm = {
   email: "",
   password: "",
   phone: "",
-  role: "Technician",
+  role: "Employee",
   department: "Support",
+  cv_texte: "",
+  competences: "",
 };
 
 function splitName(fullName: string): { prenom: string; nom: string } {
@@ -175,6 +179,8 @@ export default function Users() {
         phone: createUserForm.phone,
         role: createUserForm.role,
         department: createUserForm.department,
+        cv_texte: createUserForm.cv_texte,
+        competences: createUserForm.competences,
       });
 
       setShowCreateModal(false);
@@ -202,6 +208,8 @@ export default function Users() {
       phone: user.phone,
       role: user.role,
       department: user.department,
+      cv_texte: "",
+      competences: "",
     });
     setShowEditModal(true);
   };
@@ -263,6 +271,8 @@ export default function Users() {
         return "bg-indigo-100 text-indigo-700";
       case "Technician":
         return "bg-green-100 text-green-700";
+      case "Employee":
+        return "bg-emerald-100 text-emerald-700";
       case "Analyst":
         return "bg-orange-100 text-orange-700";
       case "Client":
@@ -439,6 +449,7 @@ export default function Users() {
                 >
                   <option>All</option>
                   <option>Admin</option>
+                  <option>Employee</option>
                   <option>Manager</option>
                   <option>Supervisor</option>
                   <option>Technician</option>
@@ -719,6 +730,44 @@ export default function Users() {
                   </div>
                 </div>
 
+                {(createUserForm.role === "Employee" || createUserForm.role === "Technician") && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Competences professionnelles
+                      </label>
+                      <textarea
+                        required
+                        value={createUserForm.competences}
+                        onChange={(e) =>
+                          setCreateUserForm((prev) => ({ ...prev, competences: e.target.value }))
+                        }
+                        placeholder="React:5, Python:4, SQL:3"
+                        rows={4}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Format attendu: Competence:niveau, separees par des virgules.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        CV / Experience professionnelle
+                      </label>
+                      <textarea
+                        required
+                        value={createUserForm.cv_texte}
+                        onChange={(e) =>
+                          setCreateUserForm((prev) => ({ ...prev, cv_texte: e.target.value }))
+                        }
+                        placeholder="Resume experience, certifications, and technical background"
+                        rows={4}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
@@ -730,6 +779,7 @@ export default function Users() {
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white"
                     >
                       <option>Admin</option>
+                      <option>Employee</option>
                       <option>Manager</option>
                       <option>Supervisor</option>
                       <option>Technician</option>
@@ -869,6 +919,7 @@ export default function Users() {
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white"
                     >
                       <option>Admin</option>
+                      <option>Employee</option>
                       <option>Manager</option>
                       <option>Supervisor</option>
                       <option>Technician</option>

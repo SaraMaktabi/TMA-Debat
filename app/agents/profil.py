@@ -18,14 +18,7 @@ def _est_profil_technicien(tech: Technicien) -> bool:
     if role == "":
         return True
 
-    return role in {"technician", "technicien"}
-
-
-def _est_seed_technicien(tech: Technicien) -> bool:
-    competences = tech.competences if isinstance(tech.competences, dict) else {}
-    meta = competences.get("_meta", {}) if isinstance(competences.get("_meta", {}), dict) else {}
-    source = str(meta.get("source", "")).strip().lower()
-    return source == "seed_techniciens"
+    return role in {"technician", "technicien", "employee", "employe"}
 
 
 def _extraire_competences_tech(competences_tech: dict) -> dict:
@@ -152,7 +145,7 @@ def recommander_techniciens(analyse_nlp, db: Session, limit=2):
 
     scores = []
     for tech in tous_techniciens:
-        if _est_admin(tech) or not _est_profil_technicien(tech) or not _est_seed_technicien(tech):
+        if _est_admin(tech) or not _est_profil_technicien(tech):
             continue
         competences_tech = tech.competences or {}
         score, raisons = _calculer_score_technicien(competences_tech, technologies, systemes_impactes)
@@ -181,7 +174,7 @@ def recommander_techniciens_detaillees(analyse_nlp, db: Session, limit=3):
 
     scores = []
     for tech in tous_techniciens:
-        if _est_admin(tech) or not _est_profil_technicien(tech) or not _est_seed_technicien(tech):
+        if _est_admin(tech) or not _est_profil_technicien(tech):
             continue
         competences_tech = tech.competences or {}
         score, raisons = _calculer_score_technicien(competences_tech, technologies, systemes_impactes)

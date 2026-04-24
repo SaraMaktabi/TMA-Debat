@@ -5,7 +5,6 @@ import {
   UsersIcon,
   AlertCircle,
   CheckCircle,
-  Clock,
   Home,
   Settings,
   LogOut,
@@ -18,6 +17,7 @@ import {
   Filter,
   RefreshCcw,
   Brain,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ticketAPI } from "../api/client";
@@ -108,6 +108,25 @@ export default function AdminTickets() {
       console.error("Error reanalyzing pending tickets:", error);
     } finally {
       setReanalyzing(false);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (currentUser?.role !== "Admin") {
+      return;
+    }
+
+    const confirmed = window.confirm("Voulez-vous vraiment supprimer ce ticket ?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await ticketAPI.delete(ticketId, { requesterRole: currentUser.role });
+      await fetchTickets();
+    } catch (error) {
+      console.error("Error deleting ticket:", error);
+      window.alert("Suppression impossible pour le moment.");
     }
   };
 
@@ -447,18 +466,30 @@ export default function AdminTickets() {
                           <span className="text-xs text-gray-500">
                             {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
                           </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/ticket-details/${ticket.id}`);
-                            }}
-                            className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              Details
-                              <ArrowRight className="w-4 h-4" />
-                            </span>
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeleteTicket(ticket.id);
+                              }}
+                              className="inline-flex items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700 transition-all duration-200"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Supprimer
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/ticket-details/${ticket.id}`);
+                              }}
+                              className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                Details
+                                <ArrowRight className="w-4 h-4" />
+                              </span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -526,12 +557,23 @@ export default function AdminTickets() {
                               <span className="text-gray-600 text-sm">{ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}</span>
                             </td>
                             <td className="py-4 px-4">
-                              <button
-                                onClick={() => navigate(`/ticket-details/${ticket.id}`)}
-                                className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
-                              >
-                                Voir
-                              </button>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => navigate(`/ticket-details/${ticket.id}`)}
+                                  className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
+                                >
+                                  Voir
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    void handleDeleteTicket(ticket.id);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Supprimer
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );

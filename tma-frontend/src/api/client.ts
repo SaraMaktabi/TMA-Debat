@@ -13,20 +13,30 @@ export const ticketAPI = {
     priorite: string;
     environnement: string;
     application: string;
+    created_by_user_id?: string;
   }) => {
     const response = await api.post("/api/tickets", ticketData);
     return response.data;
   },
 
   // Récupérer tous les tickets
-  list: async () => {
-    const response = await api.get("/api/tickets");
+  list: async (params?: { createdByUserId?: string }) => {
+    const response = await api.get("/api/tickets", {
+      params: {
+        created_by_user_id: params?.createdByUserId,
+      },
+    });
     return response.data;
   },
 
   // Récupérer un ticket spécifique
-  getById: async (id: string) => {
-    const response = await api.get(`/api/tickets/${id}`);
+  getById: async (id: string, params?: { requesterUserId?: string; requesterRole?: string }) => {
+    const response = await api.get(`/api/tickets/${id}`, {
+      params: {
+        requester_user_id: params?.requesterUserId,
+        requester_role: params?.requesterRole,
+      },
+    });
     return response.data;
   },
 
@@ -53,6 +63,15 @@ export const ticketAPI = {
     const response = await api.post(`/api/tickets/reanalyze-all/pending`);
     return response.data;
   },
+
+  // Supprimer un ticket (admin uniquement)
+  delete: async (id: string, params?: { requesterRole?: string }) => {
+    await api.delete(`/api/tickets/${id}`, {
+      params: {
+        requester_role: params?.requesterRole,
+      },
+    });
+  },
 };
 
 // ===== API USERS =====
@@ -76,6 +95,8 @@ export interface UserCreatePayload {
   role: string;
   department: string;
   phone: string;
+  cv_texte: string;
+  competences: string;
 }
 
 export interface UserUpdatePayload {

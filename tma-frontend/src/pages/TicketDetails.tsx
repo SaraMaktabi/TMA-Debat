@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, AlertTriangle, CheckCircle, Search, Users, HelpCircle, Bug, Shield, Database, Cpu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI } from "../api/client";
+import { getSession } from "../utils/auth";
 
 interface Ticket {
   id: string;
@@ -25,6 +26,7 @@ interface Ticket {
 export default function TicketDetails() {
   const { id: ticketId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const session = getSession();
   
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,10 @@ export default function TicketDetails() {
 
     const fetchTicket = async () => {
       try {
-        const data = await ticketAPI.getById(ticketId);
+        const data = await ticketAPI.getById(ticketId, {
+          requesterUserId: session?.id,
+          requesterRole: session?.role,
+        });
         setTicket(data);
         setError(null);
       } catch (err: any) {

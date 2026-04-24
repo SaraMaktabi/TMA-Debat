@@ -18,5 +18,6 @@ class Ticket(Base):
     facteurs_score = Column(JSON, nullable=True)
     analyse_nlp = Column(JSON, nullable=True)
     technicien_assigne_id = Column(UUID(as_uuid=True), nullable=True)
+    created_by_user_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

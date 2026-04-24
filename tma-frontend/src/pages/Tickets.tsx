@@ -3,9 +3,12 @@ import { ticketAPI } from "../api/client";
 import { Plus, Search, AlertCircle, CheckCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { getSession } from "../utils/auth";
 
 export default function Tickets() {
   const navigate = useNavigate();
+  const session = getSession();
+  const isAdminUser = session?.role === "Admin";
   const [tickets, setTickets] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"create" | "track">("track");
   const [loading, setLoading] = useState(false);
@@ -49,7 +52,9 @@ export default function Tickets() {
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const data = await ticketAPI.list();
+      const data = await ticketAPI.list(
+        isAdminUser ? undefined : { createdByUserId: session?.id }
+      );
       setTickets(data);
     } catch (error) {
       console.error("Erreur lors du chargement des tickets:", error);
@@ -111,7 +116,8 @@ export default function Tickets() {
       description: description,
       priorite: priorite,
       environnement: environnement,
-      application: application
+      application: application,
+      created_by_user_id: session?.id,
     };
 
     console.log("Envoi au backend:", ticketData);

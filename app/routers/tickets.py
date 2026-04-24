@@ -17,6 +17,7 @@ class TicketCreate(BaseModel):
     priorite: str
     environnement: str
     application: str = ""
+    created_by_user_id: str | None = None
 
 router = APIRouter()
 
@@ -71,6 +72,13 @@ async def creer_ticket(
     db: Session = Depends(get_db)
 ):
     """Créer un nouveau ticket avec analyse NLP + Score automatiques"""
+    created_by_user_uuid = None
+    if ticket_data.created_by_user_id:
+        try:
+            created_by_user_uuid = uuid.UUID(ticket_data.created_by_user_id)
+        except ValueError:
+            raise HTTPException(400, "created_by_user_id invalide")
+
     ticket = Ticket(
         id=uuid.uuid4(),
         titre=ticket_data.titre,
@@ -79,6 +87,7 @@ async def creer_ticket(
         environnement=ticket_data.environnement,
         application=ticket_data.application,
         statut="NOUVEAU",
+        created_by_user_id=created_by_user_uuid,
         created_at=datetime.utcnow()
     )
     db.add(ticket)
@@ -146,9 +155,18 @@ async def get_recommandations(ticket_id: str, db: Session = Depends(get_db)):
     return recommander_techniciens_detaillees(analyse_nlp, db, limit=3)
 
 @router.get("/")
-async def list_tickets(db: Session = Depends(get_db)):
+async def list_tickets(created_by_user_id: str | None = None, db: Session = Depends(get_db)):
     """Liste tous les tickets"""
-    tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
+    query = db.query(Ticket)
+
+    if created_by_user_id:
+        try:
+            created_by_user_uuid = uuid.UUID(created_by_user_id)
+        except ValueError:
+            raise HTTPException(400, "created_by_user_id invalide")
+        query = query.filter(Ticket.created_by_user_id == created_by_user_uuid)
+
+    tickets = query.order_by(Ticket.created_at.desc()).all()
     return [
         {
             "id": str(t.id), 
@@ -159,13 +177,19 @@ async def list_tickets(db: Session = Depends(get_db)):
             "score": t.score_difficulte,
             "application": t.application,
             "environnement": t.environnement,
+            "created_by_user_id": str(t.created_by_user_id) if t.created_by_user_id else None,
             "created_at": t.created_at.isoformat() if t.created_at else None
         } 
         for t in tickets
     ]
 
 @router.get("/{ticket_id}")
-async def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
+async def get_ticket(
+    ticket_id: str,
+    requester_user_id: str | None = None,
+    requester_role: str | None = None,
+    db: Session = Depends(get_db),
+):
     """Détail d'un ticket"""
     try:
         ticket_id_uuid = uuid.UUID(ticket_id)
@@ -175,6 +199,15 @@ async def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id_uuid).first()
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
+
+    if requester_role != "Admin" and requester_user_id:
+        try:
+            requester_user_uuid = uuid.UUID(requester_user_id)
+        except ValueError:
+            raise HTTPException(400, "requester_user_id invalide")
+
+        if ticket.created_by_user_id and ticket.created_by_user_id != requester_user_uuid:
+            raise HTTPException(403, "Acces refuse a ce ticket")
     
     return {
         "id": str(ticket.id), 
@@ -188,6 +221,7 @@ async def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
         "facteurs": ticket.facteurs_score,
         "analyse_nlp": ticket.analyse_nlp,
         "technicien_assigne_id": str(ticket.technicien_assigne_id) if ticket.technicien_assigne_id else None,
+        "created_by_user_id": str(ticket.created_by_user_id) if ticket.created_by_user_id else None,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None
     }
 
@@ -240,3 +274,22 @@ async def reanalyze_all_pending(background_tasks: BackgroundTasks, db: Session =
         "count": count,
         "status": "processing"
     }
+
+
+@router.delete("/{ticket_id}", status_code=204)
+async def delete_ticket(ticket_id: str, requester_role: str | None = None, db: Session = Depends(get_db)):
+    """Supprime un ticket (admin uniquement)."""
+    if requester_role != "Admin":
+        raise HTTPException(403, "Seul un admin peut supprimer un ticket")
+
+    try:
+        ticket_id_uuid = uuid.UUID(ticket_id)
+    except ValueError:
+        raise HTTPException(400, "ID invalide")
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id_uuid).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+
+    db.delete(ticket)
+    db.commit()

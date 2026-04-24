@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, Bot, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, Bot, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { ticketAPI } from "../api/client";
+import { ticketAPI, userAPI, type UserDto } from "../api/client";
 
 interface Ticket {
   id: string;
@@ -21,6 +21,7 @@ interface Ticket {
   };
   environnement: string;
   application: string;
+  created_by_user_id?: string | null;
   created_at?: string;
 }
 
@@ -44,6 +45,8 @@ export default function TicketDetailsAdmin() {
   const [copied, setCopied] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [ticketClient, setTicketClient] = useState<UserDto | null>(null);
+  const [clientLoading, setClientLoading] = useState(false);
 
   const normalizeTicket = (data: any): Ticket => ({
     ...data,
@@ -105,6 +108,29 @@ export default function TicketDetailsAdmin() {
 
     fetchRecommendations();
   }, [ticketId, ticket?.analyse_nlp, ticket?.score_difficulte]);
+
+  useEffect(() => {
+    if (!ticket?.created_by_user_id) {
+      setTicketClient(null);
+      return;
+    }
+
+    const fetchClient = async () => {
+      try {
+        setClientLoading(true);
+        const users = await userAPI.list();
+        const found = users.find((user) => user.id === ticket.created_by_user_id) || null;
+        setTicketClient(found);
+      } catch (err) {
+        console.error("Erreur chargement client ticket:", err);
+        setTicketClient(null);
+      } finally {
+        setClientLoading(false);
+      }
+    };
+
+    fetchClient();
+  }, [ticket?.created_by_user_id]);
 
   const getPriorityStyles = (priorite: string) => {
     switch (priorite) {
@@ -547,6 +573,64 @@ export default function TicketDetailsAdmin() {
 
             {/* Right Sidebar */}
             <div className="space-y-6">
+              {/* Client Card */}
+              <div className="bg-gradient-to-br from-sky-50 to-cyan-50 rounded-xl border border-sky-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-sky-900 mb-4 inline-flex items-center gap-2">
+                  <UserCircle2 className="w-5 h-5" />
+                  Client du ticket
+                </h3>
+
+                {clientLoading ? (
+                  <div className="flex items-center gap-3 text-sky-700">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Chargement du profil client...
+                  </div>
+                ) : ticketClient ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-sky-200 bg-white/80 p-4">
+                      <p className="text-sm text-sky-600 font-semibold">Nom complet</p>
+                      <p className="text-base font-bold text-gray-900 mt-1">{ticketClient.name}</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Mail className="w-4 h-4 text-sky-600" />
+                        <span className="font-medium">{ticketClient.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Phone className="w-4 h-4 text-sky-600" />
+                        <span>{ticketClient.phone || "Non renseigné"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Building2 className="w-4 h-4 text-sky-600" />
+                        <span>{ticketClient.department || "Département non renseigné"}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-sky-100 text-sky-700">
+                        {ticketClient.role}
+                      </span>
+                      <span
+                        className={`px-3 py-1 text-xs font-bold rounded-full ${
+                          ticketClient.status === "Active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {ticketClient.status}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-sky-300 bg-white/70 p-4 text-sm text-sky-800">
+                    {ticket.created_by_user_id
+                      ? "Profil client introuvable pour ce ticket."
+                      : "Ce ticket n'est pas encore lié à un client."}
+                  </div>
+                )}
+              </div>
+
               {/* Summary Card */}
               <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm sticky top-32">
                 <h3 className="text-lg font-bold text-gray-900 mb-6 inline-flex items-center gap-2">

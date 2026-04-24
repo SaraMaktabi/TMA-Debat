@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 from uuid import UUID, uuid4
 
@@ -20,9 +21,11 @@ class UserCreate(BaseModel):
     prenom: str
     email: str
     password: str
-    role: str | None = "Technician"
+    role: str | None = "Employee"
     department: str | None = "Support"
     phone: str | None = ""
+    cv_texte: str | None = ""
+    competences: str | None = ""
 
 
 class UserUpdate(BaseModel):
@@ -92,6 +95,38 @@ def _merge_meta(technicien: Technicien, role: str | None, department: str | None
     return {**competences, "_meta": meta}
 
 
+def _parse_competences_text(competences_text: str | None) -> dict:
+    if not isinstance(competences_text, str):
+        return {}
+
+    competences: dict[str, int] = {}
+    for chunk in re.split(r"[\n,;]+", competences_text):
+        item = chunk.strip()
+        if not item:
+            continue
+
+        if ":" in item:
+            nom, niveau_text = item.split(":", 1)
+        elif "=" in item:
+            nom, niveau_text = item.split("=", 1)
+        else:
+            nom, niveau_text = item, "1"
+
+        nom = nom.strip()
+        niveau_text = niveau_text.strip()
+        if not nom:
+            continue
+
+        try:
+            niveau = int(float(niveau_text))
+        except ValueError:
+            continue
+
+        competences[nom] = max(1, min(5, niveau))
+
+    return competences
+
+
 def _read_password_hash(technicien: Technicien) -> str | None:
     competences = technicien.competences if isinstance(technicien.competences, dict) else {}
     auth_meta = competences.get("_auth", {}) if isinstance(competences.get("_auth", {}), dict) else {}
@@ -131,6 +166,10 @@ def list_users(db: Session = Depends(get_db)):
 
 @router.post("/", status_code=201)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+    role = (payload.role or "Employee").strip() or "Employee"
+    cv_texte = payload.cv_texte.strip() if isinstance(payload.cv_texte, str) else ""
+    competences_pro = _parse_competences_text(payload.competences)
+
     existing = db.query(Technicien).filter(Technicien.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Un utilisateur avec cet email existe deja")
@@ -141,13 +180,14 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
         prenom=payload.prenom.strip(),
         email=payload.email.strip().lower(),
         competences={
+            **competences_pro,
             "_meta": {
-                "role": payload.role or "Technician",
+                "role": role,
                 "department": payload.department or "Support",
                 "phone": payload.phone or "",
             }
         },
-        cv_texte="",
+        cv_texte=cv_texte,
         disponibilite=True,
         charge_actuelle=0,
     )
