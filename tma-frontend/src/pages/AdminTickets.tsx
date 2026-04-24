@@ -13,7 +13,6 @@ import {
   MessageSquare,
   AlertTriangle,
   ArrowRight,
-  Loader,
   Filter,
   RefreshCcw,
   Brain,
@@ -22,6 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { ticketAPI } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
+import PlatformSidebar from "../components/PlatformSidebar";
 
 type AdminTicket = {
   id: string;
@@ -163,6 +163,24 @@ export default function AdminTickets() {
     return values;
   }, [filteredTickets]);
 
+  const priorityDashboard = useMemo(() => {
+    const byPriority = {
+      P1: filteredTickets.filter((t) => t.priorite === "P1").length,
+      P2: filteredTickets.filter((t) => t.priorite === "P2").length,
+      P3: filteredTickets.filter((t) => t.priorite === "P3").length,
+      P4: filteredTickets.filter((t) => t.priorite === "P4").length,
+    };
+
+    const total = filteredTickets.length || 1;
+
+    return [
+      { key: "P1", label: "Critique", count: byPriority.P1, percent: Math.round((byPriority.P1 / total) * 100), tone: "bg-red-100 text-red-700" },
+      { key: "P2", label: "Haute", count: byPriority.P2, percent: Math.round((byPriority.P2 / total) * 100), tone: "bg-orange-100 text-orange-700" },
+      { key: "P3", label: "Normale", count: byPriority.P3, percent: Math.round((byPriority.P3 / total) * 100), tone: "bg-yellow-100 text-yellow-700" },
+      { key: "P4", label: "Faible", count: byPriority.P4, percent: Math.round((byPriority.P4 / total) * 100), tone: "bg-green-100 text-green-700" },
+    ];
+  }, [filteredTickets]);
+
   const menuItems = [
     { icon: Home, label: "Accueil", href: "/", badge: null },
     { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
@@ -210,8 +228,9 @@ export default function AdminTickets() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
-      <aside className="w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
+    <div className="min-h-screen w-full flex bg-white">
+      <PlatformSidebar currentUser={currentUser} menuItems={menuItems} onLogout={logout} />
+      <aside className="hidden w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
           <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all duration-300">
             <div className="p-2.5 rounded-xl shadow-md group-hover:shadow-gray-400/50 transition-all duration-300" style={{ backgroundColor: "#08052e" }}>
@@ -277,97 +296,136 @@ export default function AdminTickets() {
         </div>
       </aside>
 
-      <div className="flex-1 overflow-auto">
-        <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
-          <div className="px-8 py-5 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Tickets Admin
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">Espace dedie a l'analyse detaillee des tickets</p>
+      <div className="flex-1 overflow-auto bg-[#f6f6f7]">
+        <div className="p-4 md:p-6">
+          <div className="mb-5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="relative w-full max-w-md">
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search ticket, app, priorite"
+                className="w-full rounded-xl border border-gray-200 bg-white pl-4 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+              />
             </div>
-            <div className="flex items-center gap-3 flex-wrap justify-end">
-              <button
-                onClick={reanalyzePending}
-                disabled={reanalyzing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-100 border border-amber-300 text-sm font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-60"
-              >
-                <Brain className={`w-4 h-4 ${reanalyzing ? "animate-spin" : ""}`} />
-                Relancer IA en attente
-              </button>
-              <button
-                onClick={refreshTickets}
-                disabled={refreshing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                <RefreshCcw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-                Rafraichir
-              </button>
-            </div>
-          </div>
-        </nav>
 
-        <div className="px-8 py-8">
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <p className="text-xs text-blue-700 font-semibold">Total</p>
-              <p className="text-2xl font-bold text-blue-900">{counts.total}</p>
-            </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-xs text-amber-700 font-semibold">Nouveaux</p>
-              <p className="text-2xl font-bold text-amber-900">{counts.nouveau}</p>
-            </div>
-            <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
-              <p className="text-xs text-orange-700 font-semibold">En cours</p>
-              <p className="text-2xl font-bold text-orange-900">{counts.enCours}</p>
-            </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs text-emerald-700 font-semibold">Resolus</p>
-              <p className="text-2xl font-bold text-emerald-900">{counts.resolu}</p>
-            </div>
-            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
-              <p className="text-xs text-violet-700 font-semibold">Sans score IA</p>
-              <p className="text-2xl font-bold text-violet-900">{counts.pendingScore}</p>
-            </div>
-          </div>
-
-          <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Rechercher ticket, app, priorite..."
-                  className="w-72 max-w-full pl-4 pr-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              </div>
-              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 bg-white">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <select
-                  value={timeFilter}
-                  onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
-                  className="text-sm bg-transparent outline-none"
-                >
-                  <option value="7d">7 jours</option>
-                  <option value="30d">30 jours</option>
-                  <option value="90d">90 jours</option>
-                  <option value="all">Tout</option>
-                </select>
-              </div>
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white">
+              <Filter className="w-4 h-4 text-gray-500" />
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-sm"
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
+                className="text-sm bg-transparent outline-none"
               >
-                <option value="ALL">Tous statuts</option>
-                <option value="NOUVEAU">Nouveau</option>
-                <option value="EN_ANALYSE">En analyse</option>
-                <option value="AFFECTE">Affecte</option>
-                <option value="RESOLU">Resolue</option>
+                <option value="7d">7 jours</option>
+                <option value="30d">30 jours</option>
+                <option value="90d">90 jours</option>
+                <option value="all">Tout</option>
               </select>
             </div>
 
-            <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm"
+            >
+              <option value="ALL">Tous statuts</option>
+              <option value="NOUVEAU">Nouveau</option>
+              <option value="EN_ANALYSE">En analyse</option>
+              <option value="AFFECTE">Affecte</option>
+              <option value="RESOLU">Resolue</option>
+            </select>
+
+            <button
+              onClick={refreshTickets}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-[#1a1545] hover:bg-gray-50 disabled:opacity-60"
+            >
+              <RefreshCcw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-5 overflow-hidden relative">
+            <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
+            <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
+            <p className="text-sm text-sky-200 mb-2">Pilotage intelligent</p>
+            <h1 className="text-3xl font-extrabold mb-3">Tickets admin</h1>
+            <p className="text-sm text-slate-200 max-w-xl">
+              Analysez, filtrez et supprimez les tickets critiques depuis un espace unifie.
+            </p>
+            <button
+              onClick={reanalyzePending}
+              disabled={reanalyzing}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/90 text-[#1a1545] text-sm font-semibold hover:bg-white disabled:opacity-60"
+            >
+              <Brain className={`w-4 h-4 ${reanalyzing ? "animate-spin" : ""}`} />
+              Relancer IA en attente
+            </button>
+          </section>
+
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500 font-semibold">Total</p>
+              <p className="text-2xl font-bold text-[#1a1545]">{counts.total}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500 font-semibold">Nouveaux</p>
+              <p className="text-2xl font-bold text-[#1a1545]">{counts.nouveau}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500 font-semibold">En cours</p>
+              <p className="text-2xl font-bold text-[#1a1545]">{counts.enCours}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500 font-semibold">Resolus</p>
+              <p className="text-2xl font-bold text-[#1a1545]">{counts.resolu}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500 font-semibold">Sans score IA</p>
+              <p className="text-2xl font-bold text-[#1a1545]">{counts.pendingScore}</p>
+            </div>
+          </div>
+
+          <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1a1545]">Dashboard priorité</h2>
+              <span className="text-sm text-gray-500">Sur tickets filtrés</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              {priorityDashboard.map((item) => (
+                <div key={item.key} className="rounded-xl border border-gray-200 p-4 bg-[#fafafe]">
+                  <p className="text-xs text-gray-500 mb-2">Priorité {item.key}</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${item.tone}`}>{item.label}</span>
+                    <span className="text-lg font-bold text-[#1a1545]">{item.count}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">{item.percent}% du total</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {priorityDashboard.map((item) => (
+                <div key={`${item.key}-bar`}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-semibold text-gray-700">{item.key} - {item.label}</span>
+                    <span className="font-bold text-[#1a1545]">{item.percent}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${item.key === "P1" ? "bg-red-400" : item.key === "P2" ? "bg-orange-400" : item.key === "P3" ? "bg-yellow-400" : "bg-green-400"}`}
+                      style={{ width: `${item.percent}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-2xl font-bold text-[#1a1545]">Liste tickets</h2>
+
+            <div className="flex items-center bg-white rounded-xl p-1 border border-gray-200">
               <button
                 onClick={() => setViewMode("cards")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
@@ -391,7 +449,7 @@ export default function AdminTickets() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             {viewMode === "cards" && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {loading ? (
@@ -410,16 +468,13 @@ export default function AdminTickets() {
                   filteredTickets.map((ticket) => {
                     const priorityStyle = getPriorityStyles(ticket.priorite);
                     const statusStyle = getStatusStyles(ticket.statut);
-                    const hasScore = ticket.score_difficulte !== null && ticket.score_difficulte !== undefined;
-                    const analysisDone = ticket.statut === "RESOLU" || hasScore;
-                    const analysisLabel = analysisDone ? "Resolue" : "En cours";
                     const PriorityIcon = priorityStyle.Icon;
 
                     return (
                       <div
                         key={ticket.id}
                         onClick={() => navigate(`/ticket-details/${ticket.id}`)}
-                        className="group bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-6 transition-all duration-300 cursor-pointer hover:border-purple-300 hover:shadow-lg hover:shadow-purple-200/50 hover:transform hover:-translate-y-2"
+                        className="group bg-white border border-gray-200 rounded-xl p-6 transition-all duration-300 cursor-pointer hover:shadow-md"
                       >
                         <div className="flex items-center justify-between gap-3 mb-4">
                           <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${priorityStyle.bg} ${priorityStyle.text}`}>
@@ -433,34 +488,8 @@ export default function AdminTickets() {
                           </span>
                         </div>
 
-                        <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-blue-700 transition-colors line-clamp-2">{ticket.titre}</h3>
+                        <h3 className="text-base font-bold text-[#1a1545] mb-2 transition-colors line-clamp-2">{ticket.titre}</h3>
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{ticket.description || "Pas de description disponible."}</p>
-
-                        <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-t border-b border-gray-200">
-                          <div>
-                            <p className="text-xs text-gray-500">Application</p>
-                            <p className="text-xs font-semibold text-blue-600 mt-1">{ticket.application || "Non renseignee"}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Environnement</p>
-                            <p className="text-xs font-semibold text-blue-600 mt-1">{ticket.environnement || "N/A"}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Score</p>
-                            <p className={`text-sm font-bold mt-1 ${getScoreColor(ticket.score_difficulte)}`}>
-                              {ticket.score_difficulte !== null && ticket.score_difficulte !== undefined ? `${ticket.score_difficulte}/100` : "En attente"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Analyse IA</p>
-                            <p className={`text-xs font-semibold mt-1 ${analysisDone ? "text-green-600" : "text-yellow-600"}`}>
-                              <span className="inline-flex items-center gap-1">
-                                {analysisDone ? <CheckCircle className="w-3.5 h-3.5" /> : <Loader className="w-3.5 h-3.5 animate-spin" />}
-                                {analysisLabel}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
 
                         <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                           <span className="text-xs text-gray-500">
@@ -482,7 +511,7 @@ export default function AdminTickets() {
                                 e.stopPropagation();
                                 navigate(`/ticket-details/${ticket.id}`);
                               }}
-                              className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
+                              className="text-sm font-semibold text-[#1a1545] hover:text-[#08052e] transition-all duration-200"
                             >
                               <span className="inline-flex items-center gap-1">
                                 Details
@@ -502,7 +531,7 @@ export default function AdminTickets() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
+                    <tr className="border-b border-gray-200 bg-[#f8f8fb]">
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Titre</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Priorite</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-700 text-sm">Statut</th>
@@ -528,7 +557,7 @@ export default function AdminTickets() {
                         const PriorityIcon = priorityStyle.Icon;
 
                         return (
-                          <tr key={ticket.id} className="border-b border-gray-100 hover:bg-blue-50 transition-all duration-200 cursor-pointer">
+                          <tr key={ticket.id} className="border-b border-gray-100 hover:bg-gray-50 transition-all duration-200 cursor-pointer">
                             <td className="py-4 px-4">
                               <p className="text-gray-900 font-medium text-sm">{ticket.titre}</p>
                             </td>
@@ -560,7 +589,7 @@ export default function AdminTickets() {
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => navigate(`/ticket-details/${ticket.id}`)}
-                                  className="text-sm font-semibold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text hover:from-blue-500 hover:to-purple-500 transition-all duration-200"
+                                  className="text-sm font-semibold text-[#1a1545] hover:text-[#08052e] transition-all duration-200"
                                 >
                                   Voir
                                 </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ticketAPI } from "../api/client";
-import { Plus, Search, AlertCircle, CheckCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
+import { Plus, Search, AlertCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../utils/auth";
@@ -11,7 +11,6 @@ export default function Tickets() {
   const isAdminUser = session?.role === "Admin";
   const [tickets, setTickets] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"create" | "track">("track");
-  const [loading, setLoading] = useState(false);
 
   // Form states - adaptés au backend
   // const [companyName, setCompanyName] = useState("");
@@ -50,7 +49,6 @@ export default function Tickets() {
   ];
 
   const fetchTickets = async () => {
-    setLoading(true);
     try {
       const data = await ticketAPI.list(
         isAdminUser ? undefined : { createdByUserId: session?.id }
@@ -64,8 +62,6 @@ export default function Tickets() {
         text: "Impossible de charger les tickets",
         confirmButtonColor: "#001f3f",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -170,22 +166,10 @@ export default function Tickets() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-white">
-      {/* Navbar */}
-      <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-8 h-8 text-blue-900" />
-            <span className="font-semibold text-xl text-gray-900">TMA System</span>
-          </div>
-          <a href="/" className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors">
-            Accueil
-          </a>
-        </div>
-      </nav>
-      
+    <div className="min-h-screen w-full bg-[#f6f6f7]">
+      <div className="overflow-auto">
       {/* ============ HERO SECTION ============ */}
-      <div className="bg-gradient-to-b from-gray-100 to-gray-50 py-8 lg:py-12 px-4">
+      <div className="py-8 lg:py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-medium text-gray-500 mb-4 flex items-center justify-center gap-2">
             <User size={16} />
@@ -566,6 +550,7 @@ export default function Tickets() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

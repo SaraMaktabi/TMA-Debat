@@ -1,29 +1,25 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  Bot,
-  BarChart3,
-  UsersIcon,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  TrendingUp,
   Home,
+  BarChart3,
+  AlertCircle,
   Settings,
-  LogOut,
-  Sparkles,
-  AlertTriangle,
+  Search,
+  Bell,
   ArrowRight,
-  Activity,
-  Filter,
-  RefreshCcw,
+  CheckCircle2,
+  Clock3,
+  Sparkles,
+  UsersIcon,
+  Briefcase,
   ShieldAlert,
-  Target,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AgCharts } from "ag-charts-react";
 import type { AgChartOptions } from "ag-charts-community";
 import { ticketAPI, userAPI } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
+import PlatformSidebar from "../components/PlatformSidebar";
 
 type DashboardTicket = {
   id: string;
@@ -35,7 +31,6 @@ type DashboardTicket = {
   score?: number | null;
   created_at?: string | null;
   application?: string;
-  environnement?: string;
 };
 
 type TimeFilter = "7d" | "30d" | "90d" | "all";
@@ -43,18 +38,25 @@ type TimeFilter = "7d" | "30d" | "90d" | "all";
 export default function Dashboard() {
   const navigate = useNavigate();
   const currentUser = getSession();
+
   const [tickets, setTickets] = useState<DashboardTicket[]>([]);
   const [usersCount, setUsersCount] = useState(0);
   const [activeUsersCount, setActiveUsersCount] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("30d");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
 
   const logout = () => {
     clearSession();
     navigate("/login", { replace: true });
   };
+
+  const menuItems = [
+    { icon: Home, label: "Accueil", href: "/", badge: null },
+    { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
+    { icon: AlertCircle, label: "Tickets Admin", href: "/admin-tickets", badge: tickets.length > 0 ? tickets.length.toString() : null },
+    { icon: UsersIcon, label: "Utilisateurs", href: "/users", badge: usersCount > 0 ? usersCount.toString() : null },
+    { icon: Settings, label: "Parametres", href: "#", badge: null },
+  ];
 
   const avatarText = (currentUser?.name || "User")
     .split(" ")
@@ -75,18 +77,9 @@ export default function Dashboard() {
     return date >= minDate;
   };
 
-  const formatStatusLabel = (status: string) => {
-    if (status === "NOUVEAU") return "Nouveau";
-    if (status === "EN_ANALYSE") return "En analyse";
-    if (status === "AFFECTE") return "Affecte";
-    if (status === "RESOLU") return "Resolue";
-    return status;
-  };
-
   const fetchDashboardData = async () => {
     try {
       const [ticketsRes, usersRes] = await Promise.all([ticketAPI.list(), userAPI.list()]);
-
       const normalized = (ticketsRes || []).map((t: DashboardTicket) => ({
         ...t,
         score_difficulte: t?.score_difficulte ?? t?.score,
@@ -107,382 +100,116 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const refreshData = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
-  };
-
   const filteredTickets = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
     return tickets.filter((ticket) => {
       const periodOk = isInPeriod(ticket.created_at, timeFilter);
-      const statusOk = statusFilter === "ALL" || ticket.statut === statusFilter;
-      const query = searchTerm.trim().toLowerCase();
       const searchOk =
         query.length === 0 ||
         ticket.titre?.toLowerCase().includes(query) ||
         ticket.application?.toLowerCase().includes(query) ||
         ticket.priorite?.toLowerCase().includes(query);
-      return periodOk && statusOk && searchOk;
+      return periodOk && searchOk;
     });
-  }, [tickets, timeFilter, statusFilter, searchTerm]);
+  }, [tickets, timeFilter, searchTerm]);
 
-  const statusCounts = useMemo(() => {
-    const counts = {
-      NOUVEAU: 0,
-      EN_ANALYSE: 0,
-      AFFECTE: 0,
-      RESOLU: 0,
-    };
-    filteredTickets.forEach((ticket) => {
-      if (ticket.statut in counts) {
-        counts[ticket.statut as keyof typeof counts] += 1;
-      }
-    });
-    return counts;
-  }, [filteredTickets]);
-
-  const kpiValues = useMemo(() => {
+  const kpis = useMemo(() => {
     const total = filteredTickets.length;
-    const resolved = statusCounts.RESOLU;
-    const inProgress = statusCounts.EN_ANALYSE + statusCounts.AFFECTE;
-    const pendingAnalysis = filteredTickets.filter((t) => t.score_difficulte === null || t.score_difficulte === undefined).length;
-    const highPriority = filteredTickets.filter((t) => t.priorite === "P1" || t.priorite === "P2").length;
-    const scored = filteredTickets.filter((t) => t.score_difficulte !== null && t.score_difficulte !== undefined);
-    const avgScore = scored.length > 0 ? Math.round(scored.reduce((acc, cur) => acc + Number(cur.score_difficulte || 0), 0) / scored.length) : 0;
-    const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+    const resolved = filteredTickets.filter((t) => t.statut === "RESOLU").length;
+    const inProgress = filteredTickets.filter((t) => t.statut === "EN_ANALYSE" || t.statut === "AFFECTE").length;
+    const critical = filteredTickets.filter((t) => t.priorite === "P1" || t.priorite === "P2").length;
+    const pendingAI = filteredTickets.filter((t) => t.score_difficulte === null || t.score_difficulte === undefined).length;
 
     return {
       total,
       resolved,
       inProgress,
-      pendingAnalysis,
-      highPriority,
-      avgScore,
-      resolutionRate,
+      critical,
+      pendingAI,
+      resolutionRate: total > 0 ? Math.round((resolved / total) * 100) : 0,
     };
-  }, [filteredTickets, statusCounts]);
-
-  const stats = [
-    {
-      label: "Tickets Totaux",
-      value: kpiValues.total.toString(),
-      icon: BarChart3,
-      textColor: "text-blue-700",
-      bgClass: "from-blue-50 to-cyan-50 border-blue-100",
-      helper: "Volume filtre",
-    },
-    {
-      label: "Nouveaux",
-      value: statusCounts.NOUVEAU.toString(),
-      icon: AlertCircle,
-      textColor: "text-amber-700",
-      bgClass: "from-amber-50 to-yellow-50 border-amber-100",
-      helper: "A traiter",
-    },
-    {
-      label: "En Cours",
-      value: kpiValues.inProgress.toString(),
-      icon: Clock,
-      textColor: "text-orange-700",
-      bgClass: "from-orange-50 to-red-50 border-orange-100",
-      helper: "Analyse et affectation",
-    },
-    {
-      label: "Resolus",
-      value: kpiValues.resolved.toString(),
-      icon: CheckCircle,
-      textColor: "text-emerald-700",
-      bgClass: "from-emerald-50 to-teal-50 border-emerald-100",
-      helper: `${kpiValues.resolutionRate}% taux de resolution`,
-    },
-    {
-      label: "Priorite Haute",
-      value: kpiValues.highPriority.toString(),
-      icon: ShieldAlert,
-      textColor: "text-rose-700",
-      bgClass: "from-rose-50 to-pink-50 border-rose-100",
-      helper: "P1 + P2",
-    },
-    {
-      label: "Score Moyen",
-      value: `${kpiValues.avgScore}/100`,
-      icon: Target,
-      textColor: "text-violet-700",
-      bgClass: "from-violet-50 to-indigo-50 border-violet-100",
-      helper: "Complexite moyenne",
-    },
-  ];
-
-  const statusChartData = [
-    { name: "Nouveau", value: statusCounts.NOUVEAU, color: "#2563eb" },
-    { name: "En analyse", value: statusCounts.EN_ANALYSE, color: "#f59e0b" },
-    { name: "Affecte", value: statusCounts.AFFECTE, color: "#7c3aed" },
-    { name: "Resolue", value: statusCounts.RESOLU, color: "#10b981" },
-  ];
-const priorityChartData = [
-  { name: "P1", value: filteredTickets.filter((t) => t.priorite === "P1").length },
-  { name: "P2", value: filteredTickets.filter((t) => t.priorite === "P2").length },
-  { name: "P3", value: filteredTickets.filter((t) => t.priorite === "P3").length },
-  { name: "P4", value: filteredTickets.filter((t) => t.priorite === "P4").length },
-];
+  }, [filteredTickets]);
 
   const trendData = useMemo(() => {
     const days = 7;
     const today = new Date();
-    const items = Array.from({ length: days }).map((_, idx) => {
+    return Array.from({ length: days }).map((_, idx) => {
       const day = new Date(today);
       day.setDate(today.getDate() - (days - idx - 1));
       const key = day.toISOString().slice(0, 10);
-      const label = day.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+      const label = day.toLocaleDateString("fr-FR", { weekday: "short" });
       const count = filteredTickets.filter((ticket) => {
         if (!ticket.created_at) return false;
-        const ticketDay = new Date(ticket.created_at).toISOString().slice(0, 10);
-        return ticketDay === key;
+        return new Date(ticket.created_at).toISOString().slice(0, 10) === key;
       }).length;
-      return { label, tickets: count };
+      return { day: label, tickets: count };
     });
-    return items;
   }, [filteredTickets]);
 
-  const topApps = useMemo(() => {
-    const appMap = new Map<string, number>();
-    filteredTickets.forEach((ticket) => {
-      const appName = ticket.application?.trim() || "Non renseignee";
-      appMap.set(appName, (appMap.get(appName) || 0) + 1);
-    });
-    return Array.from(appMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [filteredTickets]);
+  const trendChartOptions = useMemo((): AgChartOptions => {
+    return {
+      data: trendData,
+      background: { fill: "transparent" },
+      series: [
+        {
+          type: "line",
+          xKey: "day",
+          yKey: "tickets",
+          stroke: "#7dd3fc",
+          strokeWidth: 3,
+          marker: { enabled: true, fill: "#dbeafe", stroke: "#0f172a", size: 6 },
+        },
+      ],
+      legend: { enabled: false },
+      padding: { top: 8, right: 8, bottom: 8, left: 8 },
+    };
+  }, [trendData]);
 
-  const criticalTickets = useMemo(() => {
+  const topTickets = useMemo(() => {
     return [...filteredTickets]
       .sort((a, b) => {
-        const p = (x: string) => (x === "P1" ? 4 : x === "P2" ? 3 : x === "P3" ? 2 : 1);
-        const priorityGap = p(b.priorite) - p(a.priorite);
-        if (priorityGap !== 0) return priorityGap;
+        const rank = (p: string) => (p === "P1" ? 4 : p === "P2" ? 3 : p === "P3" ? 2 : 1);
+        const diff = rank(b.priorite) - rank(a.priorite);
+        if (diff !== 0) return diff;
         return Number(b.score_difficulte || 0) - Number(a.score_difficulte || 0);
       })
       .slice(0, 4);
   }, [filteredTickets]);
 
-  const menuItems = [
-    { icon: Home, label: "Accueil", href: "/", badge: null },
-    { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
-    { icon: AlertCircle, label: "Tickets Admin", href: "/admin-tickets", badge: tickets.length > 0 ? tickets.length.toString() : null },
-    { icon: UsersIcon, label: "Utilisateurs", href: "/users", badge: usersCount > 0 ? usersCount.toString() : null },
-    { icon: Settings, label: "Parametres", href: "#", badge: null },
-  ];
+  const appDistribution = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredTickets.forEach((ticket) => {
+      const app = ticket.application?.trim() || "General";
+      map.set(app, (map.get(app) || 0) + 1);
+    });
+    const values = Array.from(map.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
 
-  const getStatusStyles = (statut: string) => {
-    switch (statut) {
-      case "NOUVEAU":
-        return { bg: "bg-blue-100", text: "text-blue-700", label: "Nouveau" };
-      case "EN_ANALYSE":
-        return { bg: "bg-yellow-100", text: "text-yellow-700", label: "En analyse" };
-      case "AFFECTE":
-        return { bg: "bg-purple-100", text: "text-purple-700", label: "Affecte" };
-      case "RESOLU":
-        return { bg: "bg-green-100", text: "text-green-700", label: "Resolue" };
-      default:
-        return { bg: "bg-gray-100", text: "text-gray-700", label: statut };
-    }
-  };
-
-const chartPalette = {
-  fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
-  strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
-};
-
-const trendChartOptions = useMemo((): AgChartOptions => {
-  return {
-    data: trendData,
-    background: { fill: "transparent" },
-    theme: { palette: chartPalette },
-    series: [
-      {
-        type: "area",
-        xKey: "label",
-        yKey: "tickets",
-        fillOpacity: 0.25,
-        strokeWidth: 3,
-        marker: {
-          enabled: true,
-          size: 6,
-          fill: "#3A9AFF",
-          stroke: "#1C0770",
-        },
-      },
-    ],
-  };
-}, [trendData]);
-
-const priorityChartOptions = useMemo((): AgChartOptions => {
-  return {
-    data: priorityChartData,
-    background: { fill: "transparent" },
-    theme: {
-      palette: {
-        fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
-        strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
-      },
-    },
-    series: [
-      {
-        type: "donut",
-        angleKey: "value",
-        calloutLabelKey: "name",
-        innerRadiusRatio: 0.6,
-      },
-    ],
-  };
-}, [priorityChartData]);
-
- const statusChartOptions = useMemo((): AgChartOptions => {
-  return {
-    data: statusChartData,
-    background: { fill: "transparent" },
-    theme: {
-      palette: {
-        fills: ["#1C0770", "#261CC1", "#3A9AFF", "#F1FF5E"],
-        strokes: ["#12034d", "#1b1491", "#1f6fd1", "#c4d63a"],
-      },
-    },
-    series: [
-      {
-        type: "bar",
-        xKey: "name",
-        yKey: "value",
-        cornerRadius: 10,
-      },
-    ],
-  };
-}, [statusChartData]);
-
+    const max = values[0]?.count || 1;
+    return values.map((item) => ({ ...item, percent: Math.round((item.count / max) * 100) }));
+  }, [filteredTickets]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
-      <aside className="w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-          <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all duration-300">
-            <div className="p-2.5 rounded-xl shadow-md group-hover:shadow-gray-400/50 transition-all duration-300" style={{backgroundColor: '#08052e'}}>
-              <Bot className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg text-gray-900">TMA System</span>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="p-4 space-y-2 mt-2">
-          {menuItems.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={index}
-                to={item.href}
-                className="flex items-center gap-3 px-4 py-3.5 text-gray-700 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-300 group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-100/0 to-purple-100/0 group-hover:from-blue-100/50 group-hover:to-purple-100/50 transition-all duration-300"></div>
-                <Icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-300 relative z-10" />
-                <span className="text-sm font-semibold relative z-10">{item.label}</span>
-                {item.badge && (
-                  <span className="ml-auto px-2.5 py-1 text-xs font-bold rounded-full text-white shadow-md relative z-10" style={{backgroundColor: '#08052e'}}>
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="mx-4 my-6 h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent"></div>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-          <div className="rounded-xl p-4 border border-gray-200 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl text-white font-bold shadow-md flex items-center justify-center" style={{backgroundColor: '#0f0745'}}>
-                {avatarText || "US"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{currentUser?.name ?? "Utilisateur"}</p>
-                <p className="text-xs font-medium" style={{color: '#0f0745'}}>{currentUser?.role ?? "User"}</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate("/users")}
-                className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg text-white transition-all duration-200 hover:opacity-90"
-                style={{backgroundColor: '#0f0745'}}
-              >
-                Profile
-              </button>
-              <button
-                onClick={logout}
-                className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all duration-200"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex-1 overflow-auto">
-        {/* <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
-          <div className="px-8 py-5 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Tableau de Bord
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">Pilotage admin en temps reel</p>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap justify-end">
-              <button
-                onClick={refreshData}
-                disabled={refreshing}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                <RefreshCcw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-                Rafraichir
-              </button>
-              <div className="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-green-100/60 to-emerald-100/60 rounded-xl border border-green-300/60 backdrop-blur-sm">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50"></div>
-                <span className="text-sm font-semibold text-green-700">Système Actif</span>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-600">Dernière mise à jour</p>
-                <p className="text-sm font-semibold text-gray-900">{new Date().toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"})}</p>
-              </div>
-            </div>
-          </div>
-        </nav> */}
-
-        <div className="px-8 py-8">
-          <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <p className="text-lg text-gray-700 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-500" />
-                Vue d'ensemble complete du systeme TMA
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Rechercher ticket, app, priorite..."
-                  className="w-72 max-w-full pl-4 pr-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
-              </div>
-              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 bg-white">
-                <Filter className="w-4 h-4 text-gray-500" />
+    <div className="min-h-screen w-full flex bg-white">
+      <PlatformSidebar currentUser={currentUser} menuItems={menuItems} onLogout={logout} />
+      <div className="grid min-h-screen flex-1 grid-cols-1 xl:grid-cols-[1fr_310px] gap-0">
+            <main className="bg-[#f6f6f7] p-4 md:p-6 min-h-screen">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <div className="relative w-full max-w-md">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-gray-500" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search ticket, app, priorite"
+                    className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
                 <select
                   value={timeFilter}
                   onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
-                  className="text-sm bg-transparent outline-none"
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm"
                 >
                   <option value="7d">7 jours</option>
                   <option value="30d">30 jours</option>
@@ -490,219 +217,192 @@ const priorityChartOptions = useMemo((): AgChartOptions => {
                   <option value="all">Tout</option>
                 </select>
               </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-sm"
-              >
-                <option value="ALL">Tous statuts</option>
-                <option value="NOUVEAU">Nouveau</option>
-                <option value="EN_ANALYSE">En analyse</option>
-                <option value="AFFECTE">Affecte</option>
-                <option value="RESOLU">Resolue</option>
-              </select>
-            </div>
-          </div>
 
-          {/* {kpiValues.highPriority > 0 && (
-            <div className="mb-6 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50 p-4 flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-rose-100">
-                  <AlertTriangle className="w-5 h-5 text-rose-700" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-rose-900">Attention operationnelle</p>
-                  <p className="text-sm text-rose-700">{kpiValues.highPriority} tickets critiques demandent une priorisation.</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setStatusFilter("ALL");
-                  setSearchTerm("P1");
-                }}
-                className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700"
-              >
-                Voir les critiques
-              </button>
-            </div>
-          )} */}
+              <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-5 overflow-hidden relative">
+                <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
+                <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
+                <p className="text-sm text-sky-200 mb-2">Pilotage intelligent</p>
+                <h1 className="text-3xl font-extrabold mb-3">Vue globale TMA</h1>
+                <p className="text-sm text-slate-200 max-w-xl">
+                  Supervisez vos tickets, l'activite equipe et les priorites critiques en un seul espace.
+                </p>
+              </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5 mb-10">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={index}
-                  className={`group bg-gradient-to-br ${stat.bgClass} rounded-2xl p-5 border hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold text-gray-700">{stat.label}</p>
-                    <div className="p-2.5 bg-white rounded-xl shadow-sm">
-                      <Icon className={`w-5 h-5 ${stat.textColor}`} />
+              <section className="mb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-2xl font-bold text-[#1a1545]">Tickets critiques</h2>
+                  <button onClick={() => navigate("/admin-tickets")} className="text-sm font-semibold text-[#1a1545] inline-flex items-center gap-1">
+                    Voir plus
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {topTickets.length === 0 ? (
+                    <div className="md:col-span-3 rounded-xl bg-white border border-gray-200 p-4 text-sm text-gray-600">
+                      Aucun ticket sur ce filtre.
                     </div>
-                  </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-                  <p className="text-xs text-gray-600">{stat.helper}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-            <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-gray-900 inline-flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  Flux des tickets (7 derniers jours)
-                </h3>
-              </div>
-              <div className="h-72">
-                <AgCharts options={trendChartOptions} />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 inline-flex items-center gap-2">
-                <Activity className="w-5 h-5 text-violet-600" />
-                Repartition par priorite
-              </h3>
-              <div className="h-72">
-                <AgCharts options={priorityChartOptions} />
-              </div>
-              {/* <div className="grid grid-cols-2 gap-2 text-xs">
-                {priorityChartData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
-                    <span className="text-gray-700">{item.name}: {item.value}</span>
-                  </div>
-                ))}
-              </div> */}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-            <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Repartition par statut</h3>
-              <div className="h-64">
-                <AgCharts options={statusChartOptions} />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Insights pro</h3>
-              <div className="space-y-3 text-sm">
-                <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
-                  <p className="font-semibold text-blue-900">Equipe</p>
-                  <p className="text-blue-700">{activeUsersCount}/{usersCount} utilisateurs actifs.</p>
-                </div>
-                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
-                  <p className="font-semibold text-amber-900">Analyse IA</p>
-                  <p className="text-amber-700">{kpiValues.pendingAnalysis} tickets sans score final.</p>
-                </div>
-                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
-                  <p className="font-semibold text-emerald-900">Performance</p>
-                  <p className="text-emerald-700">{kpiValues.resolutionRate}% de tickets resolus.</p>
-                </div>
-                <div className="rounded-xl bg-violet-50 border border-violet-100 p-3">
-                  <p className="font-semibold text-violet-900">Recommendation</p>
-                  <p className="text-violet-700">
-                    {kpiValues.highPriority > 0
-                      ? "Renforcer le staffing sur incidents P1/P2 cette semaine."
-                      : "Niveau de criticite stable, garder le rythme actuel."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Applications les plus impactees</h3>
-              {topApps.length === 0 ? (
-                <p className="text-sm text-gray-500">Aucune application sur le filtre courant.</p>
-              ) : (
-                <div className="space-y-3">
-                  {topApps.map((app, index) => {
-                    const max = topApps[0]?.count || 1;
-                    const percent = Math.round((app.count / max) * 100);
-                    return (
-                      <div key={app.name}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <p className="font-semibold text-gray-800">{index + 1}. {app.name}</p>
-                          <p className="text-gray-600">{app.count} tickets</p>
-                        </div>
-                        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" style={{ width: `${percent}%` }}></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Top tickets critiques</h3>
-              {criticalTickets.length === 0 ? (
-                <p className="text-sm text-gray-500">Aucun ticket pour le filtre courant.</p>
-              ) : (
-                <div className="space-y-3">
-                  {criticalTickets.map((ticket) => {
-                    const statusStyle = getStatusStyles(ticket.statut);
-                    return (
+                  ) : (
+                    topTickets.slice(0, 3).map((ticket) => (
                       <button
                         key={ticket.id}
                         onClick={() => navigate(`/ticket-details/${ticket.id}`)}
-                        className="w-full text-left rounded-xl border border-gray-200 p-3 hover:border-blue-300 hover:bg-blue-50 transition"
+                        className="text-left rounded-xl bg-white border border-gray-200 p-4 hover:shadow-md transition"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900 line-clamp-1">{ticket.titre}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{ticket.application || "Application non renseignee"}</p>
-                          </div>
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${statusStyle.bg} ${statusStyle.text}`}>
-                            {formatStatusLabel(ticket.statut)}
-                          </span>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
-                          <span className="px-2 py-1 rounded bg-rose-100 text-rose-700 font-bold">{ticket.priorite}</span>
-                          <span>Score: {ticket.score_difficulte ?? "N/A"}</span>
-                        </div>
+                        <p className="text-xs text-gray-500 mb-2">{ticket.priorite} • {ticket.application || "General"}</p>
+                        <p className="font-bold text-[#1a1545] line-clamp-2 mb-2">{ticket.titre}</p>
+                        <p className="text-xs text-gray-600 line-clamp-2">{ticket.description || "Pas de description"}</p>
                       </button>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </section>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Analyse detaillee des tickets</h3>
-                <p className="text-sm text-gray-600 max-w-2xl">
-                  Les cards et la vue liste des tickets ont ete deplacees dans une page dediee pour faciliter
-                  l'analyse admin sans surcharger le dashboard KPI/charts.
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-2xl font-bold text-[#1a1545]">Timing & progress</h2>
+                  <button onClick={() => fetchDashboardData()} className="text-sm font-semibold text-[#1a1545] inline-flex items-center gap-1">
+                    Refresh
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white border border-gray-200 p-3">
+                    <div className="h-44">
+                      <AgCharts options={trendChartOptions} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-gray-200 p-4 space-y-4">
+                    {appDistribution.length === 0 ? (
+                      <p className="text-sm text-gray-600">Aucune repartition disponible.</p>
+                    ) : (
+                      appDistribution.map((item) => (
+                        <div key={item.label}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <p className="font-semibold text-gray-800">{item.label}</p>
+                            <p className="font-bold text-[#1a1545]">{item.count}</p>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-sky-300 to-cyan-200" style={{ width: `${item.percent}%` }}></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </section>
+            </main>
+
+            <aside className="bg-[#f7f7f8] border-l border-gray-200 p-4 md:p-5 min-h-screen">
+              <div className="flex items-center justify-between mb-6">
+                <button className="p-2 rounded-lg hover:bg-white">
+                  <Bell className="w-4 h-4 text-[#1a1545]" />
+                </button>
+                <div className="flex items-center gap-2 bg-white rounded-full px-2.5 py-1.5 border border-gray-200">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: "#08052e" }}>
+                    {avatarText || "AD"}
+                  </div>
+                  <span className="text-sm font-semibold text-[#1a1545]">{currentUser?.name || "Admin"}</span>
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-bold text-[#1a1545]">System overview</h3>
+                  <span className="text-sm text-gray-500">Live</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="rounded-xl bg-white border border-gray-200 p-3 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <p className="font-bold text-[#1a1545]">Resolus</p>
+                        <p className="text-xs text-gray-500">Tickets fermes</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-[#1a1545]">{kpis.resolved}</span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-gray-200 p-3 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2">
+                      <Clock3 className="w-4 h-4 text-amber-600" />
+                      <div>
+                        <p className="font-bold text-[#1a1545]">En cours</p>
+                        <p className="text-xs text-gray-500">Analyse + affectation</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-[#1a1545]">{kpis.inProgress}</span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-gray-200 p-3 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-rose-600" />
+                      <div>
+                        <p className="font-bold text-[#1a1545]">Critiques</p>
+                        <p className="text-xs text-gray-500">P1 + P2</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-[#1a1545]">{kpis.critical}</span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-gray-200 p-3 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2">
+                      <UsersIcon className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <p className="font-bold text-[#1a1545]">Equipe active</p>
+                        <p className="text-xs text-gray-500">Utilisateurs connectables</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-[#1a1545]">{activeUsersCount}/{usersCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-[#050626] text-white p-4 relative overflow-hidden">
+                <div className="absolute -top-8 -left-8 w-24 h-24 rounded-full border-4 border-sky-100/40"></div>
+                <div className="absolute right-3 top-3 w-3 h-3 bg-white/80 rounded-full"></div>
+                <p className="text-xs text-sky-200 mb-1">Action rapide</p>
+                <p className="font-bold text-lg mb-2">Tickets admin</p>
+                <p className="text-xs text-slate-200 mb-4">Accedez aux details, debat IA et decisions d'affectation.</p>
+                <button
+                  onClick={() => navigate("/admin-tickets")}
+                  className="inline-flex items-center gap-2 text-sm font-semibold"
+                >
+                  Ouvrir
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-xl bg-white border border-gray-200 p-3">
+                <p className="text-xs text-gray-500 mb-1 inline-flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                  AI insight
+                </p>
+                <p className="text-sm font-semibold text-[#1a1545]">
+                  {kpis.pendingAI > 0
+                    ? `${kpis.pendingAI} tickets attendent encore un score IA.`
+                    : "Tous les tickets recents ont deja un score IA."}
                 </p>
               </div>
-              <button
-                onClick={() => navigate("/admin-tickets")}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold shadow-md hover:opacity-90"
-                style={{ backgroundColor: "#08052e" }}
-              >
-                Ouvrir la page Tickets Admin
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
 
-          {/* Footer */}
-          <div className="mt-12 text-center">
-            <p className="text-sm text-gray-500">
-              Dashboard TMA - Pilotage intelligent des tickets et de l'equipe
-            </p>
-          </div>
-        </div>
+              <div className="mt-4 rounded-xl bg-white border border-gray-200 p-3">
+                <p className="text-xs text-gray-500 mb-1 inline-flex items-center gap-1">
+                  <Briefcase className="w-3.5 h-3.5 text-cyan-500" />
+                  Taux de resolution
+                </p>
+                <p className="text-sm font-semibold text-[#1a1545]">{kpis.resolutionRate}% sur la periode selectionnee</p>
+              </div>
+
+              <button
+                onClick={() => navigate("/users")}
+                className="mt-4 w-full rounded-xl bg-white border border-gray-200 px-3 py-2.5 text-sm font-semibold text-[#1a1545] hover:bg-gray-50 transition"
+              >
+                Gérer les utilisateurs
+              </button>
+            </aside>
       </div>
     </div>
   );

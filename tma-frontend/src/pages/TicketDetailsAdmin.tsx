@@ -1,7 +1,9 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, Bot, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2 } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI, userAPI, type UserDto } from "../api/client";
+import { clearSession, getSession } from "../utils/auth";
+import PlatformSidebar from "../components/PlatformSidebar";
 
 interface Ticket {
   id: string;
@@ -38,6 +40,7 @@ interface Recommendation {
 export default function TicketDetailsAdmin() {
   const { id: ticketId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const currentUser = getSession();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +50,11 @@ export default function TicketDetailsAdmin() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [ticketClient, setTicketClient] = useState<UserDto | null>(null);
   const [clientLoading, setClientLoading] = useState(false);
+
+  const logout = () => {
+    clearSession();
+    navigate("/login", { replace: true });
+  };
 
   const normalizeTicket = (data: any): Ticket => ({
     ...data,
@@ -187,7 +195,7 @@ export default function TicketDetailsAdmin() {
   const menuItems = [
     { icon: Home, label: "Accueil", href: "/" },
     { icon: BarChart3, label: "Dashboard", href: "/dashboard" },
-    { icon: AlertCircle, label: "Admin", href: "/dashboard", active: false },
+    { icon: AlertCircle, label: "Tickets Admin", href: "/admin-tickets" },
     { icon: UsersIcon, label: "Utilisateurs", href: "/users" },
   ];
 
@@ -199,7 +207,7 @@ export default function TicketDetailsAdmin() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
+      <div className="min-h-screen w-full flex bg-white">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader className="w-12 h-12 text-blue-900 animate-spin mx-auto mb-4" />
@@ -212,7 +220,7 @@ export default function TicketDetailsAdmin() {
 
   if (error || !ticket) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
+      <div className="min-h-screen w-full flex bg-white">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
@@ -237,84 +245,50 @@ export default function TicketDetailsAdmin() {
   const analysisLabel = analysisDone ? "Résolue" : "En cours";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
-      {/* Sidebar */}
-      <aside className="w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
-          <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all">
-            <div className="p-2.5 rounded-xl shadow-md" style={{backgroundColor: '#08052e'}}>
-              <Bot className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-lg text-gray-900">TMA System</span>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="p-4 space-y-2 mt-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.label}
-                to={item.href}
-                className="flex items-center gap-3 px-4 py-3.5 text-gray-700 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm font-semibold">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-          <div className="rounded-xl p-4 border border-gray-200 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl text-white font-bold flex items-center justify-center" style={{backgroundColor: '#0f0745'}}>
-                AD
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Admin</p>
-                <p className="text-xs font-medium" style={{color: '#0f0745'}}>Gestionnaire</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
+    <div className="min-h-screen w-full flex bg-white">
+      <PlatformSidebar currentUser={currentUser} menuItems={menuItems} onLogout={logout} />
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Top Navigation */}
-        <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
-          <div className="px-8 py-5 flex items-center justify-between">
+      <div className="flex-1 overflow-auto bg-[#f6f6f7]">
+        {/* Page Content */}
+        <div className="p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold transition"
+              onClick={() => navigate("/admin-tickets")}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-[#1a1545] hover:bg-gray-50 transition"
             >
-              <ArrowLeft size={20} />
-              Retour au Dashboard
+              <ArrowLeft size={18} />
+              Retour aux tickets
             </button>
-            <div className="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-green-100/60 to-emerald-100/60 rounded-xl border border-green-300/60">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-semibold text-green-700">Système Actif</span>
+            <div className="flex items-center gap-3 px-4 py-2 bg-white border border-gray-200 rounded-xl">
+              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-semibold text-emerald-700">Système Actif</span>
             </div>
           </div>
-        </nav>
 
-        {/* Page Content */}
-        <div className="px-8 py-8">
+          <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-6 overflow-hidden relative">
+            <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
+            <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
+            <p className="text-sm text-sky-200 mb-2">Détail ticket admin</p>
+            <h1 className="text-3xl font-extrabold mb-2 line-clamp-2">{ticket.titre}</h1>
+            <p className="text-sm text-slate-200 flex items-center gap-2">
+              <span className="font-semibold">ID:</span>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(ticket.id)}
+                className="inline-flex items-center gap-2 text-sky-200 hover:text-white"
+              >
+                {ticket.id}
+                <Copy size={14} className={copied ? "text-emerald-300" : "text-slate-300"} />
+              </button>
+            </p>
+          </section>
+
           {/* Header Section */}
           <div className="mb-8">
             <div className="flex items-start justify-between gap-6">
               <div className="flex-1">
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">{ticket.titre}</h1>
-                <p className="text-gray-600 flex items-center gap-2">
-                  <span className="text-sm">ID:</span>
-                  <span className="font-mono text-blue-600 cursor-pointer hover:text-blue-700 flex items-center gap-2" onClick={() => copyToClipboard(ticket.id)}>
-                    {ticket.id}
-                    <Copy size={16} className={copied ? "text-green-600" : "text-gray-400"} />
-                  </span>
-                </p>
+                <h2 className="text-2xl font-bold text-[#1a1545] mb-2">Informations principales</h2>
+                <p className="text-gray-600">Vue complète du ticket, analyse IA et recommandation technique.</p>
               </div>
 
               {/* Status Badge */}
@@ -326,7 +300,7 @@ export default function TicketDetailsAdmin() {
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-semibold mb-2">PRIORITÉ</p>
                 <div className={`flex items-center gap-2 text-lg font-bold ${priorityStyle.text}`}>
                   <priorityStyle.Icon size={22} />
@@ -334,17 +308,17 @@ export default function TicketDetailsAdmin() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-semibold mb-2">APPLICATION</p>
-                <p className="text-lg font-bold text-blue-600">{ticket.application}</p>
+                <p className="text-lg font-bold text-[#1a1545]">{ticket.application}</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-semibold mb-2">ENVIRONNEMENT</p>
-                <p className="text-lg font-bold text-blue-600">{ticket.environnement}</p>
+                <p className="text-lg font-bold text-[#1a1545]">{ticket.environnement}</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <p className="text-xs text-gray-500 font-semibold mb-2">CRÉÉ LE</p>
                 <p className="text-lg font-bold text-gray-900">
                   {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
@@ -519,12 +493,12 @@ export default function TicketDetailsAdmin() {
                         "text-gray-700 bg-gray-100";
 
                       return (
-                        <div key={technicien.id} className="rounded-xl border border-gray-200 p-5 hover:shadow-md transition bg-gradient-to-br from-white to-blue-50/40">
+                        <div key={technicien.id} className="rounded-xl border border-gray-200 p-5 hover:shadow-md transition bg-white">
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <div className="flex items-center gap-2 mb-1">
-                                <Award className="w-5 h-5 text-blue-600" />
-                                <h3 className="text-lg font-bold text-gray-900">{technicien.nom}</h3>
+                                <Award className="w-5 h-5 text-[#1a1545]" />
+                                <h3 className="text-lg font-bold text-[#1a1545]">{technicien.nom}</h3>
                               </div>
                               <p className="text-sm text-gray-600">{technicien.email}</p>
                             </div>
@@ -574,41 +548,41 @@ export default function TicketDetailsAdmin() {
             {/* Right Sidebar */}
             <div className="space-y-6">
               {/* Client Card */}
-              <div className="bg-gradient-to-br from-sky-50 to-cyan-50 rounded-xl border border-sky-200 p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-sky-900 mb-4 inline-flex items-center gap-2">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-[#1a1545] mb-4 inline-flex items-center gap-2">
                   <UserCircle2 className="w-5 h-5" />
                   Client du ticket
                 </h3>
 
                 {clientLoading ? (
-                  <div className="flex items-center gap-3 text-sky-700">
+                  <div className="flex items-center gap-3 text-[#1a1545]">
                     <Loader className="w-4 h-4 animate-spin" />
                     Chargement du profil client...
                   </div>
                 ) : ticketClient ? (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-sky-200 bg-white/80 p-4">
-                      <p className="text-sm text-sky-600 font-semibold">Nom complet</p>
+                    <div className="rounded-lg border border-gray-200 bg-[#f8f8fb] p-4">
+                      <p className="text-sm text-gray-500 font-semibold">Nom complet</p>
                       <p className="text-base font-bold text-gray-900 mt-1">{ticketClient.name}</p>
                     </div>
 
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <Mail className="w-4 h-4 text-sky-600" />
+                        <Mail className="w-4 h-4 text-[#1a1545]" />
                         <span className="font-medium">{ticketClient.email}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <Phone className="w-4 h-4 text-sky-600" />
+                        <Phone className="w-4 h-4 text-[#1a1545]" />
                         <span>{ticketClient.phone || "Non renseigné"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <Building2 className="w-4 h-4 text-sky-600" />
+                        <Building2 className="w-4 h-4 text-[#1a1545]" />
                         <span>{ticketClient.department || "Département non renseigné"}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">
-                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-sky-100 text-sky-700">
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#eef0ff] text-[#1a1545]">
                         {ticketClient.role}
                       </span>
                       <span
@@ -623,7 +597,7 @@ export default function TicketDetailsAdmin() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-sky-300 bg-white/70 p-4 text-sm text-sky-800">
+                  <div className="rounded-lg border border-dashed border-gray-300 bg-[#fafafe] p-4 text-sm text-gray-700">
                     {ticket.created_by_user_id
                       ? "Profil client introuvable pour ce ticket."
                       : "Ce ticket n'est pas encore lié à un client."}
@@ -632,9 +606,9 @@ export default function TicketDetailsAdmin() {
               </div>
 
               {/* Summary Card */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm sticky top-32">
-                <h3 className="text-lg font-bold text-gray-900 mb-6 inline-flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm sticky top-6">
+                <h3 className="text-lg font-bold text-[#1a1545] mb-6 inline-flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#1a1545]" />
                   Résumé
                 </h3>
                 <div className="space-y-4">
@@ -668,7 +642,7 @@ export default function TicketDetailsAdmin() {
 
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full mt-6 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                  className="w-full mt-6 px-4 py-3 bg-[#08052e] text-white font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
                 >
                   <Clock size={18} />
                   Actualiser

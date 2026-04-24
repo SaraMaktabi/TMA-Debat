@@ -3,6 +3,7 @@ import {
   Bot,
   BarChart3,
   UsersIcon,
+  AlertCircle,
   Home,
   Settings,
   LogOut,
@@ -20,6 +21,7 @@ import {
 import { useEffect, useState, type FormEvent } from "react";
 import { userAPI, type UserDto } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
+import PlatformSidebar from "../components/PlatformSidebar";
 
 interface User {
   id: string;
@@ -285,7 +287,7 @@ export default function Users() {
   const menuItems = [
     { icon: Home, label: "Accueil", href: "/", badge: null },
     { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
-    // { icon: AlertCircle, label: "Tickets", href: "/tickets", badge: tickets.length.toString() },
+    { icon: AlertCircle, label: "Tickets Admin", href: "/admin-tickets", badge: null },
     { icon: UsersIcon, label: "Utilisateurs", href: "/users", badge: null },
     { icon: Settings, label: "Paramètres", href: "#", badge: null },
   ];
@@ -309,9 +311,10 @@ export default function Users() {
     .join("");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
+    <div className="min-h-screen w-full flex bg-white">
+      <PlatformSidebar currentUser={currentUser} menuItems={menuItems} onLogout={logout} />
       {/* Sidebar - Light Premium */}
-      <aside className="w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden w-72 bg-white border-r border-gray-200 shadow-sm sticky top-0 h-screen overflow-y-auto">
         {/* Logo Section - Light */}
         <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
           <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all duration-300">
@@ -379,53 +382,50 @@ export default function Users() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Top Navigation - Light */}
-        <nav className="border-b border-gray-200 bg-white/60 backdrop-blur-xl sticky top-0 z-40 shadow-sm">
-          <div className="px-8 py-5 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                User Management
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">Gestion complète des utilisateurs du système</p>
+      <div className="flex-1 overflow-auto bg-[#f6f6f7]">
+        <div className="p-4 md:p-6">
+          <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-5 overflow-hidden relative">
+            <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
+            <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
+            <p className="text-sm text-sky-200 mb-2">Pilotage intelligent</p>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-3xl font-extrabold mb-3">User Management</h1>
+                <p className="text-sm text-slate-200 max-w-2xl">Gestion complète des utilisateurs du système, avec profils et compétences pour les employés et techniciens.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setCreateError(null);
+                  setShowCreateModal(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/90 text-[#1a1545] text-sm font-semibold hover:bg-white"
+              >
+                <Plus className="w-5 h-5" />
+                Add New User
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setCreateError(null);
-                setShowCreateModal(true);
-              }}
-              className="px-4 py-2.5 text-white font-semibold rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:opacity-90 flex items-center gap-2"
-              style={{ backgroundColor: "#08052e" }}
-            >
-              <Plus className="w-5 h-5" />
-              Add New User
-            </button>
-          </div>
-        </nav>
-
-        {/* Page Content */}
-        <div className="px-8 py-8">
+          </section>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {stats.map((stat, idx) => {
               const Icon = stat.icon;
               return (
-                <div key={idx} className="group bg-white rounded-xl p-6 border border-gray-200 hover:border-purple-300 transition-all duration-300 hover:shadow-lg hover:shadow-purple-200/50 cursor-pointer transform hover:scale-105 hover:-translate-y-1">
+                <div key={idx} className="group bg-white rounded-xl p-6 border border-gray-200 transition-all duration-300 hover:shadow-md cursor-pointer">
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm font-semibold text-gray-600 group-hover:text-blue-600 transition-colors">{stat.label}</p>
-                    <div className="p-3 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg group-hover:from-blue-200 group-hover:to-purple-200 transition-all duration-300">
-                      <Icon className={`w-5 h-5 ${stat.textColor} group-hover:scale-110 transition-transform duration-300`} />
+                    <p className="text-sm font-semibold text-gray-600 transition-colors">{stat.label}</p>
+                    <div className="p-3 bg-[#f4f6ff] rounded-lg transition-all duration-300">
+                      <Icon className={`w-5 h-5 ${stat.textColor} transition-transform duration-300`} />
                     </div>
                   </div>
-                  <h3 className="text-3xl font-bold text-black mb-2">{stat.value}</h3>
-                  <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors">Total en système</p>
+                  <h3 className="text-3xl font-bold text-[#1a1545] mb-2">{stat.value}</h3>
+                  <p className="text-xs text-gray-500 transition-colors">Total en système</p>
                 </div>
               );
             })}
           </div>
 
           {/* Filters and Search */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div className="relative">
@@ -435,7 +435,7 @@ export default function Users() {
                   placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all bg-white"
                 />
               </div>
 
@@ -445,7 +445,7 @@ export default function Users() {
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all bg-white"
                 >
                   <option>All</option>
                   <option>Admin</option>
@@ -464,7 +464,7 @@ export default function Users() {
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all bg-white"
                 >
                   <option>All</option>
                   <option>Active</option>
@@ -475,22 +475,22 @@ export default function Users() {
           </div>
 
           {loadError && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {loadError}
             </div>
           )}
 
           {actionError && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {actionError}
             </div>
           )}
 
           {/* Users Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
+                <thead className="bg-[#f8f8fb] border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">User</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Contact</th>
@@ -503,7 +503,7 @@ export default function Users() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {!isLoadingUsers && filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-blue-50/50 transition-all duration-200">
+                    <tr key={user.id} className="hover:bg-gray-50 transition-all duration-200">
                       {/* User Info */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -514,7 +514,7 @@ export default function Users() {
                               .join("")}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{user.name}</p>
+                            <p className="font-semibold text-[#1a1545]">{user.name}</p>
                             {/* <p className="text-sm text-gray-500">{user.id}</p> */}
                           </div>
                         </div>
@@ -639,10 +639,10 @@ export default function Users() {
               Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{users.length}</span> users
             </p>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+              <button className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
                 Previous
               </button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+              <button className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
                 Next
               </button>
             </div>
