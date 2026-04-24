@@ -89,6 +89,8 @@ export interface DebateMessage {
   tour?: number;
   timestamp?: string;
   llm?: string;
+  type?: "admin_question" | "agent_reponse" | string;
+  en_reponse_a?: string;
 }
 
 export interface DebateJudgeProposal {
@@ -139,13 +141,42 @@ export const debatAPI = {
     };
   },
 
-  terminer: async (sessionId: string, mode: DebateMode = "classique") => {
-    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/terminer` : `/api/debat/${sessionId}/terminer`;
+  question: async (sessionId: string, payload: { question: string }, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/question` : `/api/debat/${sessionId}/question`;
+    const response = await api.post(endpoint, payload);
+    return response.data as {
+      question: string;
+      reponses: DebateMessage[];
+      messages_interactifs?: DebateMessage[];
+      historique?: DebateMessage[];
+    };
+  },
+
+  continuer: async (sessionId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/continue` : `/api/debat/${sessionId}/repondre`;
     const response = await api.post(endpoint);
     return response.data as {
-      proposition: DebateJudgeProposal;
+      agent?: string;
+      llm?: string;
+      message?: string;
+      tour?: number;
       historique: DebateMessage[];
+      est_termine?: boolean;
     };
+  },
+
+  juge: async (sessionId: string, mode: DebateMode = "classique") => {
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/juge` : `/api/debat/${sessionId}/terminer`;
+    const response = await api.post(endpoint);
+    return response.data as {
+      proposition?: DebateJudgeProposal;
+      historique?: DebateMessage[];
+      historique_complet?: DebateMessage[];
+    };
+  },
+
+  terminer: async (sessionId: string, mode: DebateMode = "classique") => {
+    return debatAPI.juge(sessionId, mode);
   },
 
   valider: async (
@@ -153,7 +184,7 @@ export const debatAPI = {
     decision: { technicien_id: string; admin_nom?: string; raison?: string },
     mode: DebateMode = "classique"
   ) => {
-    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/valider` : `/api/debat/${sessionId}/valider`;
+    const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/valider_final` : `/api/debat/${sessionId}/valider`;
     const response = await api.post(endpoint, decision);
     return response.data as { message: string };
   },

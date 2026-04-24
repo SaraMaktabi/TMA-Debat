@@ -5,7 +5,6 @@ import os
 import secrets
 import sys
 import uuid
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -54,12 +53,17 @@ def set_password_hash(user: Technicien, password_hash: str) -> None:
 
 
 def seed_admin() -> None:
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@tma.local").strip().lower()
-    admin_password = os.getenv("ADMIN_PASSWORD", "Admin123!").strip()
+    admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+    admin_password = (os.getenv("ADMIN_PASSWORD") or "").strip()
     admin_nom = os.getenv("ADMIN_NOM", "System")
     admin_prenom = os.getenv("ADMIN_PRENOM", "Admin")
     admin_phone = os.getenv("ADMIN_PHONE", "+212600000000")
     admin_department = os.getenv("ADMIN_DEPARTMENT", "Administration")
+
+    if not admin_email:
+        raise ValueError("ADMIN_EMAIL doit etre defini dans .env")
+    if not admin_password:
+        raise ValueError("ADMIN_PASSWORD doit etre defini dans .env")
 
     if len(admin_password) < 6:
         raise ValueError("ADMIN_PASSWORD doit contenir au moins 6 caracteres")

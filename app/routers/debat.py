@@ -20,6 +20,53 @@ sessions_classiques = {}
 sessions_hybrides = {}
 
 
+def _get_interactive_messages(session: DebatTemp):
+    """Retourne les messages interactifs persistés ou reconstruits depuis l'historique."""
+
+    cached_messages = getattr(session, "messages_interactifs", None)
+    if cached_messages:
+        return cached_messages
+
+    history = session.messages or []
+    return [
+        message
+        for message in history
+        if isinstance(message, dict) and message.get("type") in {"admin_question", "agent_reponse"}
+    ]
+
+
+def _append_session_message(session: DebatTemp, message: dict) -> None:
+    """Ajoute un message à l'historique persisté en conservant l'ordre chronologique."""
+
+    history = list(session.messages or [])
+    history.append(message)
+    session.messages = history
+
+
+def _restore_hybrid_orchestrateur(session: DebatTemp, db: Session):
+    """Recharge un orchestrateur hybride depuis la base si la mémoire a été perdue."""
+
+    session_id = str(session.id)
+    orchestrateur = sessions_hybrides.get(session_id)
+    if orchestrateur:
+        return orchestrateur
+
+    ticket = db.query(Ticket).filter(Ticket.id == session.ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+
+    analyse_nlp = ticket.analyse_nlp or {"technologies": [], "systemes_impactes": []}
+    techniciens = recommander_techniciens(analyse_nlp, db, limit=2)
+    if len(techniciens) < 2:
+        raise HTTPException(400, "Pas assez de techniciens disponibles")
+
+    orchestrateur = OrchestrateurHybride(ticket, techniciens)
+    orchestrateur.historique = list(session.messages or [])
+    orchestrateur.tour_actuel = len([msg for msg in orchestrateur.historique if not isinstance(msg, dict) or msg.get("type") != "admin_question"]) // 2
+    sessions_hybrides[session_id] = orchestrateur
+    return orchestrateur
+
+
 def _resolve_technicien_for_validation(session: DebatTemp, decision: dict, db: Session):
     """Résout de manière robuste le technicien gagnant à affecter au ticket."""
     technicien_id_raw = decision.get("technicien_id")
@@ -97,7 +144,7 @@ async def lancer_debat(ticket_id: str, db: Session = Depends(get_db)):
     message = await orchestrateur.generer_message(premier_agent)
     await orchestrateur.ajouter_message(premier_agent, message)
     
-    session.messages = orchestrateur.historique
+    session.messages = list(orchestrateur.historique)
     db.commit()
     
     return {
@@ -121,6 +168,7 @@ async def get_debat(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
+    messages_interactifs = _get_interactive_messages(session)
     orchestrateur = sessions_classiques.get(session_id) or sessions_hybrides.get(session_id)
     type_debat = "classique" if session_id in sessions_classiques else "hybride"
     
@@ -129,7 +177,7 @@ async def get_debat(session_id: str, db: Session = Depends(get_db)):
         "type": type_debat,
         "statut": session.statut,
         "historique": session.messages,
-        "messages_interactifs": getattr(session, 'messages_interactifs', []),
+        "messages_interactifs": messages_interactifs,
         "proposition_juge": session.proposition_juge,
         "decision_finale": getattr(session, 'decision_finale', None),
         "est_termine": orchestrateur.est_termine() if orchestrateur else False
@@ -157,7 +205,7 @@ async def repondre_debat(session_id: str, db: Session = Depends(get_db)):
     
     orchestrateur.incrementer_tour()
     
-    session.messages = orchestrateur.historique
+    _append_session_message(session, orchestrateur.historique[-1])
     db.commit()
     
     return {
@@ -182,9 +230,10 @@ async def terminer_debat(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
     
+    historique_complet = session.messages or orchestrateur.historique
     proposition = await evaluer_debat(
         orchestrateur.ticket,
-        orchestrateur.historique,
+        historique_complet,
         orchestrateur.techniciens
     )
     
@@ -293,7 +342,7 @@ async def lancer_debat_hybride(ticket_id: str, db: Session = Depends(get_db)):
     message = await orchestrateur.generer_message(premier_agent)
     await orchestrateur.ajouter_message(premier_agent, message)
     
-    session.messages = orchestrateur.historique
+    session.messages = list(orchestrateur.historique)
     db.commit()
     
     return {
@@ -317,14 +366,15 @@ async def get_debat_hybride(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
-    orchestrateur = sessions_hybrides.get(session_id)
+    messages_interactifs = _get_interactive_messages(session)
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
     return {
         "session_id": session_id,
         "type": "hybride",
         "statut": session.statut,
         "historique": session.messages,
-        "messages_interactifs": getattr(session, 'messages_interactifs', []),
+        "messages_interactifs": messages_interactifs,
         "proposition_juge": session.proposition_juge,
         "decision_finale": getattr(session, 'decision_finale', None),
         "est_termine": orchestrateur.est_termine() if orchestrateur else False
@@ -335,13 +385,11 @@ async def get_debat_hybride(session_id: str, db: Session = Depends(get_db)):
 async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db)):
     """Génère la réponse du prochain technicien (version hybride)"""
     
-    orchestrateur = sessions_hybrides.get(session_id)
-    if not orchestrateur:
-        raise HTTPException(404, "Session hybride non trouvée")
-    
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
+
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
     if orchestrateur.est_termine():
         return {"message": "Débat terminé", "historique": orchestrateur.historique}
@@ -352,7 +400,7 @@ async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db))
     
     orchestrateur.incrementer_tour()
     
-    session.messages = orchestrateur.historique
+    _append_session_message(session, orchestrateur.historique[-1])
     db.commit()
     
     return {
@@ -369,17 +417,16 @@ async def repondre_debat_hybride(session_id: str, db: Session = Depends(get_db))
 async def terminer_debat_hybride(session_id: str, db: Session = Depends(get_db)):
     """Termine le débat hybride et demande au juge de décider"""
     
-    orchestrateur = sessions_hybrides.get(session_id)
-    if not orchestrateur:
-        raise HTTPException(404, "Session hybride non trouvée")
-    
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
+
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
+    historique_complet = session.messages or orchestrateur.historique
     proposition = await evaluer_debat(
         orchestrateur.ticket,
-        orchestrateur.historique,
+        historique_complet,
         orchestrateur.techniciens
     )
     
@@ -456,27 +503,26 @@ async def poser_question_admin(
 ):
     """L'admin pose une question aux deux techniciens"""
     
-    orchestrateur = sessions_hybrides.get(session_id)
-    if not orchestrateur:
-        raise HTTPException(404, "Session hybride non trouvée")
-    
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
+
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
     texte_question = question.get("question", "")
+    if not texte_question.strip():
+        raise HTTPException(400, "La question admin ne peut pas être vide")
     
-    # Récupérer ou initialiser messages_interactifs
-    messages_interactifs = []
-    if hasattr(session, 'messages_interactifs') and session.messages_interactifs:
-        messages_interactifs = session.messages_interactifs
+    messages_interactifs = _get_interactive_messages(session)
     
-    messages_interactifs.append({
+    question_msg = {
         "type": "admin_question",
         "agent_nom": "Administrateur",
         "contenu": texte_question,
         "timestamp": datetime.utcnow().isoformat()
-    })
+    }
+    messages_interactifs.append(question_msg)
+    _append_session_message(session, question_msg)
     
     # Les deux agents répondent à la question
     reponses = []
@@ -493,16 +539,17 @@ async def poser_question_admin(
         }
         messages_interactifs.append(reponse_msg)
         reponses.append(reponse_msg)
-        
-        await orchestrateur.ajouter_message(agent, f"[RÉPONSE À QUESTION] {reponse}")
+
+        _append_session_message(session, reponse_msg)
     
     session.messages_interactifs = messages_interactifs
-    session.messages = orchestrateur.historique
     db.commit()
     
     return {
         "question": texte_question,
-        "reponses": reponses
+        "reponses": reponses,
+        "messages_interactifs": messages_interactifs,
+        "historique": session.messages
     }
 
 
@@ -510,9 +557,11 @@ async def poser_question_admin(
 async def continuer_debat(session_id: str, db: Session = Depends(get_db)):
     """Admin demande aux agents de continuer le débat normalement"""
     
-    orchestrateur = sessions_hybrides.get(session_id)
-    if not orchestrateur:
-        raise HTTPException(404, "Session hybride non trouvée")
+    session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session en base non trouvée")
+
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
     return await repondre_debat_hybride(session_id, db)
 
@@ -521,17 +570,13 @@ async def continuer_debat(session_id: str, db: Session = Depends(get_db)):
 async def demander_juge(session_id: str, db: Session = Depends(get_db)):
     """Admin demande au juge de trancher (analyse TOUT l'historique)"""
     
-    orchestrateur = sessions_hybrides.get(session_id)
-    if not orchestrateur:
-        raise HTTPException(404, "Session hybride non trouvée")
-    
     session = db.query(DebatTemp).filter(DebatTemp.id == session_id).first()
     if not session:
         raise HTTPException(404, "Session en base non trouvée")
+
+    orchestrateur = _restore_hybrid_orchestrateur(session, db)
     
-    historique_complet = (orchestrateur.historique or [])
-    if hasattr(session, 'messages_interactifs') and session.messages_interactifs:
-        historique_complet = historique_complet + session.messages_interactifs
+    historique_complet = session.messages or orchestrateur.historique or []
     
     proposition = await evaluer_debat(
         orchestrateur.ticket,
@@ -545,6 +590,7 @@ async def demander_juge(session_id: str, db: Session = Depends(get_db)):
     
     return {
         "proposition": proposition,
+        "historique": historique_complet,
         "historique_complet": historique_complet
     }
 
@@ -568,7 +614,7 @@ async def valider_final(session_id: str, decision: dict, db: Session = Depends(g
     
     historique_complet = {
         "messages_auto": session.messages,
-        "messages_interactifs": session.messages_interactifs if hasattr(session, 'messages_interactifs') else [],
+        "messages_interactifs": _get_interactive_messages(session),
         "proposition_juge": session.proposition_juge
     }
     

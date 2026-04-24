@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Bot, CheckCircle2, Loader2, MessageSquare, Play, RefreshCcw, Scale, Send, StopCircle, UserCheck, XCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, Bot, CheckCircle2, Loader2, MessageSquare, Play, RefreshCcw, Scale, Send, Sparkles, StopCircle, UserCheck, UsersIcon, XCircle } from "lucide-react";
 import { debatAPI, type DebateJudgeProposal, type DebateMessage, type DebateMode, type DebateTechnician } from "../api/client";
 import { getSession } from "../utils/auth";
 
@@ -23,8 +23,9 @@ export default function Debate() {
   const { id: ticketId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const session = getSession();
+  const isAdmin = session?.role === "Admin";
 
-  const [mode, setMode] = useState<DebateMode>("classique");
+  const [mode, setMode] = useState<DebateMode>(isAdmin ? "hybride" : "classique");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ticketTitle, setTicketTitle] = useState<string>("");
   const [debateStatus, setDebateStatus] = useState<string>("NON_LANCE");
@@ -34,6 +35,7 @@ export default function Debate() {
   const [isFinished, setIsFinished] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [adminQuestion, setAdminQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -42,6 +44,11 @@ export default function Debate() {
   const canFinish = !!sessionId && !isProcessing && debateStatus === "EN_COURS" && history.length > 0;
   const canValidate = !!sessionId && !isProcessing && !!judgeProposal?.gagnant_id;
   const canCancel = !!sessionId && !isProcessing && debateStatus !== "VALIDE" && debateStatus !== "ANNULE";
+  const canAskQuestion = isAdmin && mode === "hybride" && !!sessionId && !isProcessing && debateStatus === "EN_COURS" && adminQuestion.trim().length > 0;
+  const interactiveMessages = useMemo(
+    () => history.filter((msg) => msg.type === "admin_question" || msg.type === "agent_reponse"),
+    [history]
+  );
 
   const groupedScores = useMemo(() => {
     const rawScores = judgeProposal?.scores || {};
@@ -115,6 +122,23 @@ export default function Debate() {
     }
   };
 
+  const submitAdminQuestion = async () => {
+    if (!sessionId || !canAskQuestion) return;
+
+    resetAlerts();
+    setIsProcessing(true);
+    try {
+      const data = await debatAPI.question(sessionId, { question: adminQuestion.trim() }, mode);
+      setHistory(Array.isArray(data.historique) ? data.historique : history);
+      setAdminQuestion("");
+      setSuccess("Question admin envoyée aux techniciens.");
+    } catch (err) {
+      setError(parseApiError(err, "Impossible d'envoyer la question admin."));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const finishDebate = async () => {
     if (!sessionId) return;
 
@@ -122,7 +146,8 @@ export default function Debate() {
     setIsProcessing(true);
     try {
       const data = await debatAPI.terminer(sessionId, mode);
-      setHistory(Array.isArray(data.historique) ? data.historique : []);
+      const judgeHistory = Array.isArray(data.historique) ? data.historique : Array.isArray(data.historique_complet) ? data.historique_complet : [];
+      setHistory(judgeHistory);
       setJudgeProposal(data.proposition || null);
       setDebateStatus("EN_ATTENTE_VALIDATION");
       setSuccess("Le juge a rendu sa proposition.");
@@ -242,14 +267,32 @@ export default function Debate() {
             ) : (
               <div className="space-y-3 max-h-[560px] overflow-auto pr-1">
                 {history.map((msg, index) => (
-                  <article key={`${msg.agent_nom}-${index}`} className="rounded-xl border border-gray-200 p-4 bg-[#fcfcff]">
+                  <article
+                    key={`${msg.agent_nom}-${msg.timestamp || index}`}
+                    className={`rounded-xl border p-4 ${
+                      msg.type === "admin_question"
+                        ? "border-amber-200 bg-amber-50/70"
+                        : msg.type === "agent_reponse"
+                          ? "border-sky-200 bg-sky-50/70"
+                          : "border-gray-200 bg-[#fcfcff]"
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <p className="font-bold text-[#1a1545]">{msg.agent_nom}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-[#1a1545]">{msg.agent_nom}</p>
+                        {msg.type === "admin_question" && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Question admin</span>
+                        )}
+                        {msg.type === "agent_reponse" && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-semibold">Réponse</span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500 inline-flex items-center gap-2">
                         <span>Tour {msg.tour ?? "-"}</span>
                         {msg.llm && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">{msg.llm}</span>}
                       </div>
                     </div>
+                    {msg.en_reponse_a && <p className="text-xs text-gray-500 mb-2">En réponse à: {msg.en_reponse_a}</p>}
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.contenu}</p>
                   </article>
                 ))}
@@ -292,7 +335,7 @@ export default function Debate() {
                   className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-[#1a1545] disabled:opacity-50"
                 >
                   <StopCircle className="w-4 h-4" />
-                  Terminer + Juge
+                  {mode === "hybride" ? "Passer au juge" : "Terminer + Juge"}
                 </button>
 
                 <button
@@ -327,6 +370,56 @@ export default function Debate() {
               </div>
             </section>
 
+            {isAdmin && (
+              <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
+                <h3 className="font-bold text-[#1a1545] mb-2 inline-flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Interaction admin
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  {mode === "hybride"
+                    ? "Posez une question ciblée aux deux techniciens, puis relancez le débat ou demandez l'avis du juge."
+                    : "Passez en mode hybride avant le lancement pour poser des questions aux techniciens."}
+                </p>
+                <textarea
+                  value={adminQuestion}
+                  onChange={(e) => setAdminQuestion(e.target.value)}
+                  placeholder="Ex. Quelle cause est la plus probable et quelle action immédiate recommandez-vous ?"
+                  rows={4}
+                  className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-200 resize-none"
+                />
+                <div className="grid grid-cols-1 gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={submitAdminQuestion}
+                    disabled={!canAskQuestion}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#08052e] text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" />
+                    Poser la question
+                  </button>
+                  <button
+                    type="button"
+                    onClick={respondNext}
+                    disabled={!canRespond}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-amber-200 text-sm font-semibold text-[#1a1545] disabled:opacity-50"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Continuer le débat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={finishDebate}
+                    disabled={!canFinish}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-amber-200 bg-white text-sm font-semibold text-[#1a1545] disabled:opacity-50"
+                  >
+                    <Scale className="w-4 h-4" />
+                    Demander l'avis du juge
+                  </button>
+                </div>
+              </section>
+            )}
+
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <h3 className="font-bold text-[#1a1545] mb-3">Techniciens</h3>
               {technicians.length === 0 ? (
@@ -342,6 +435,28 @@ export default function Debate() {
                 </div>
               )}
             </section>
+
+            {interactiveMessages.length > 0 && (
+              <section className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm">
+                <h3 className="font-bold text-[#1a1545] mb-3 inline-flex items-center gap-2">
+                  <UsersIcon className="w-4 h-4" />
+                  Échanges interactifs
+                </h3>
+                <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                  {interactiveMessages.slice(-6).map((msg, index) => (
+                    <div key={`${msg.agent_nom}-${msg.timestamp || index}`} className="rounded-xl border border-sky-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-sm font-semibold text-[#1a1545]">{msg.agent_nom}</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">
+                          {msg.type === "admin_question" ? "Question" : "Réponse"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.contenu}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </aside>
         </div>
 
