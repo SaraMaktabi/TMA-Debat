@@ -39,10 +39,21 @@ export default function Debate() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const winnerTechnicianId = useMemo(() => {
+    const winnerId = judgeProposal?.gagnant_id;
+    if (winnerId) return winnerId;
+
+    const winnerName = judgeProposal?.gagnant_nom?.trim().toLowerCase();
+    if (!winnerName) return null;
+
+    const byName = technicians.find((tech) => tech.nom.trim().toLowerCase() === winnerName);
+    return byName?.id ?? null;
+  }, [judgeProposal, technicians]);
+
   const canStart = !!ticketId && !isStarting && !isProcessing;
   const canRespond = !!sessionId && !isProcessing && debateStatus === "EN_COURS" && !isFinished;
   const canFinish = !!sessionId && !isProcessing && debateStatus === "EN_COURS" && history.length > 0;
-  const canValidate = !!sessionId && !isProcessing && !!judgeProposal?.gagnant_id;
+  const canValidate = !!sessionId && !isProcessing && debateStatus === "EN_ATTENTE_VALIDATION" && !!judgeProposal && (!!winnerTechnicianId || !!judgeProposal.gagnant_nom);
   const canCancel = !!sessionId && !isProcessing && debateStatus !== "VALIDE" && debateStatus !== "ANNULE";
   const canAskQuestion = isAdmin && mode === "hybride" && !!sessionId && !isProcessing && debateStatus === "EN_COURS" && adminQuestion.trim().length > 0;
   const interactiveMessages = useMemo(
@@ -159,7 +170,17 @@ export default function Debate() {
   };
 
   const validateDecision = async () => {
-    if (!sessionId || !judgeProposal?.gagnant_id) return;
+    if (!sessionId || !judgeProposal) return;
+
+    const technicienNom =
+      judgeProposal.gagnant_nom ||
+      technicians.find((tech) => tech.id === winnerTechnicianId)?.nom ||
+      "";
+
+    if (!winnerTechnicianId && !technicienNom) {
+      setError("Impossible d'identifier le technicien gagnant pour valider l'affectation.");
+      return;
+    }
 
     resetAlerts();
     setIsProcessing(true);
@@ -167,7 +188,8 @@ export default function Debate() {
       const data = await debatAPI.valider(
         sessionId,
         {
-          technicien_id: judgeProposal.gagnant_id,
+          technicien_id: winnerTechnicianId || undefined,
+          technicien_nom: technicienNom,
           admin_nom: session?.name || "admin",
           raison: "Validation depuis l'interface débat",
         },

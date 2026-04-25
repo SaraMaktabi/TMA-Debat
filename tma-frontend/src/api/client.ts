@@ -181,7 +181,7 @@ export const debatAPI = {
 
   valider: async (
     sessionId: string,
-    decision: { technicien_id: string; admin_nom?: string; raison?: string },
+    decision: { technicien_id?: string; technicien_nom?: string; admin_nom?: string; raison?: string },
     mode: DebateMode = "classique"
   ) => {
     const endpoint = mode === "hybride" ? `/api/debat/hybride/${sessionId}/valider_final` : `/api/debat/${sessionId}/valider`;
