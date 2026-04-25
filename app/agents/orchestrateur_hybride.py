@@ -18,6 +18,16 @@ class OrchestrateurHybride:
         self.openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
         self.ollama_url = "http://localhost:11434/api/generate"
         self.qwen_model = "qwen3:8b"
+
+    def get_llm_for_technicien(self, technicien) -> str:
+        """Retourne le moteur LLM associé au technicien."""
+
+        technicien_id = str(getattr(technicien, "id", ""))
+        for index, current in enumerate(self.techniciens):
+            if str(getattr(current, "id", "")) == technicien_id:
+                return "GPT-4o-mini" if index % 2 == 0 else "Qwen3-8B"
+
+        return "GPT-4o-mini"
         
     async def generer_message(self, technicien, question_context: str = None) -> str:
         """
@@ -62,7 +72,7 @@ RÈGLES:
 Réponse:
 """
         
-        if technicien.prenom == "Sophie":
+        if self.get_llm_for_technicien(technicien) == "GPT-4o-mini":
             return await self._appel_gpt(prompt)
         else:
             return await self._appel_qwen(prompt)
@@ -118,7 +128,7 @@ Réponse:
             "contenu": contenu,
             "tour": self.tour_actuel,
             "timestamp": datetime.now().isoformat(),
-            "llm": "GPT-4o-mini" if technicien.prenom == "Sophie" else "Qwen3-8B"
+            "llm": self.get_llm_for_technicien(technicien)
         })
     
     async def ajouter_reponse_question(self, technicien, contenu: str, question: str):
@@ -132,7 +142,7 @@ Réponse:
             "type": "reponse_question",
             "tour": self.tour_actuel,
             "timestamp": datetime.now().isoformat(),
-            "llm": "GPT-4o-mini" if technicien.prenom == "Sophie" else "Qwen3-8B"
+            "llm": self.get_llm_for_technicien(technicien)
         })
     
     def prochain_agent(self):
