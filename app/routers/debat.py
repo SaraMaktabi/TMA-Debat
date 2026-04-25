@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.ticket import Ticket
@@ -303,7 +303,11 @@ async def annuler_debat(session_id: str, db: Session = Depends(get_db)):
 # ============================================
 
 @router.post("/lancer-hybride/{ticket_id}")
-async def lancer_debat_hybride(ticket_id: str, db: Session = Depends(get_db)):
+async def lancer_debat_hybride(
+    ticket_id: str,
+    skip_initial_message: bool = Query(False, description="Ne pas générer le premier message auto"),
+    db: Session = Depends(get_db)
+):
     """Lance un débat HYBRIDE (GPT-4o-mini vs Qwen3-8B local)"""
     
     try:
@@ -338,9 +342,10 @@ async def lancer_debat_hybride(ticket_id: str, db: Session = Depends(get_db)):
     orchestrateur = OrchestrateurHybride(ticket, techniciens)
     sessions_hybrides[str(session.id)] = orchestrateur
     
-    premier_agent = techniciens[0]
-    message = await orchestrateur.generer_message(premier_agent)
-    await orchestrateur.ajouter_message(premier_agent, message)
+    if not skip_initial_message:
+        premier_agent = techniciens[0]
+        message = await orchestrateur.generer_message(premier_agent)
+        await orchestrateur.ajouter_message(premier_agent, message)
     
     session.messages = list(orchestrateur.historique)
     db.commit()

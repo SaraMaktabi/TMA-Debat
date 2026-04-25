@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Bot, CheckCircle2, Loader2, MessageSquare, Play, RefreshCcw, Scale, Send, Sparkles, StopCircle, UserCheck, UsersIcon, XCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, Bot, CheckCircle2, Expand, Loader2, MessageSquare, Minimize2, Play, RefreshCcw, Scale, Send, Sparkles, StopCircle, UserCheck, UsersIcon, XCircle } from "lucide-react";
 import { debatAPI, type DebateJudgeProposal, type DebateMessage, type DebateMode, type DebateTechnician } from "../api/client";
 import { getSession } from "../utils/auth";
 
@@ -36,8 +36,10 @@ export default function Debate() {
   const [isStarting, setIsStarting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [adminQuestion, setAdminQuestion] = useState("");
+  const [isChatFullscreen, setIsChatFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const chatPanelRef = useRef<HTMLDivElement | null>(null);
 
   const winnerTechnicianId = useMemo(() => {
     const winnerId = judgeProposal?.gagnant_id;
@@ -50,25 +52,74 @@ export default function Debate() {
     return byName?.id ?? null;
   }, [judgeProposal, technicians]);
 
-  const canStart = !!ticketId && !isStarting && !isProcessing;
+  const canStart = !!ticketId && !sessionId && !isStarting && !isProcessing;
   const canRespond = !!sessionId && !isProcessing && debateStatus === "EN_COURS" && !isFinished;
   const canFinish = !!sessionId && !isProcessing && debateStatus === "EN_COURS" && history.length > 0;
   const canValidate = !!sessionId && !isProcessing && debateStatus === "EN_ATTENTE_VALIDATION" && !!judgeProposal && (!!winnerTechnicianId || !!judgeProposal.gagnant_nom);
   const canCancel = !!sessionId && !isProcessing && debateStatus !== "VALIDE" && debateStatus !== "ANNULE";
+  const canStartWithQuestion = isAdmin && mode === "hybride" && !sessionId && !!ticketId && !isStarting && !isProcessing && adminQuestion.trim().length > 0;
   const canAskQuestion = isAdmin && mode === "hybride" && !!sessionId && !isProcessing && debateStatus === "EN_COURS" && adminQuestion.trim().length > 0;
-  const interactiveMessages = useMemo(
-    () => history.filter((msg) => msg.type === "admin_question" || msg.type === "agent_reponse"),
-    [history]
-  );
+  const canUseAdminComposer = isAdmin && mode === "hybride" && !isProcessing && !isStarting && (!sessionId ? !!ticketId : debateStatus === "EN_COURS");
 
   const groupedScores = useMemo(() => {
     const rawScores = judgeProposal?.scores || {};
     return Object.entries(rawScores).sort((a, b) => Number(b[1]) - Number(a[1]));
   }, [judgeProposal]);
 
+  const debateStats = useMemo(() => {
+    const adminQuestions = history.filter((msg) => msg.type === "admin_question").length;
+    const agentResponses = history.filter((msg) => msg.type === "agent_reponse").length;
+    const latestMessage = history.at(-1);
+
+    return {
+      totalMessages: history.length,
+      adminQuestions,
+      agentResponses,
+      latestMessageLabel: latestMessage?.agent_nom || "Aucun message",
+      latestMessageTime: latestMessage?.timestamp ? new Date(latestMessage.timestamp).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : null,
+    };
+  }, [history]);
+
+  const statusTone = useMemo(() => {
+    if (debateStatus === "EN_COURS") return "emerald";
+    if (debateStatus === "EN_ATTENTE_VALIDATION") return "amber";
+    if (debateStatus === "VALIDE") return "sky";
+    if (debateStatus === "ANNULE") return "rose";
+    return "slate";
+  }, [debateStatus]);
+
   const resetAlerts = () => {
     setError(null);
     setSuccess(null);
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsChatFullscreen(document.fullscreenElement === chatPanelRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleChatFullscreen = async () => {
+    if (!chatPanelRef.current) return;
+
+    if (document.fullscreenElement === chatPanelRef.current) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    try {
+      if (chatPanelRef.current.requestFullscreen) {
+        await chatPanelRef.current.requestFullscreen();
+        return;
+      }
+    } catch {
+      // Fallback to in-app fullscreen below.
+    }
+
+    setIsChatFullscreen((current) => !current);
   };
 
   const launchDebate = async () => {
@@ -92,6 +143,47 @@ export default function Debate() {
       setSuccess("Débat lancé avec succès.");
     } catch (err) {
       setError(parseApiError(err, "Impossible de lancer le débat."));
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const startDebateWithAdminQuestion = async () => {
+    if (!ticketId) {
+      setError("Ticket introuvable dans l'URL.");
+      return;
+    }
+
+    if (mode !== "hybride") {
+      setError("Le démarrage avec question admin est disponible en mode hybride.");
+      return;
+    }
+
+    const questionText = adminQuestion.trim();
+    if (!questionText) {
+      setError("Ajoute une question avant de démarrer le débat.");
+      return;
+    }
+
+    resetAlerts();
+    setIsStarting(true);
+
+    try {
+      const launched = await debatAPI.lancer(ticketId, "hybride", { skipInitialMessage: true });
+      setSessionId(launched.session_id);
+      setTicketTitle(launched.ticket_titre || "");
+      setHistory(Array.isArray(launched.historique) ? launched.historique : []);
+      setTechnicians(Array.isArray(launched.techniciens) ? launched.techniciens : []);
+      setDebateStatus("EN_COURS");
+      setJudgeProposal(null);
+      setIsFinished(false);
+
+      const withQuestion = await debatAPI.question(launched.session_id, { question: questionText }, "hybride");
+      setHistory(Array.isArray(withQuestion.historique) ? withQuestion.historique : []);
+      setAdminQuestion("");
+      setSuccess("Débat lancé et première question admin envoyée.");
+    } catch (err) {
+      setError(parseApiError(err, "Impossible de démarrer le débat avec la question admin."));
     } finally {
       setIsStarting(false);
     }
@@ -221,7 +313,7 @@ export default function Debate() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f6f7] px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_10%,#eef6ff_0%,#f7f9fc_35%,#f4f7f5_100%)] px-4 py-6 md:px-8 md:py-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
           <button
@@ -237,7 +329,7 @@ export default function Debate() {
               type="button"
               onClick={() => setMode("classique")}
               disabled={!!sessionId}
-              className={`px-3 py-1.5 text-sm font-semibold rounded-lg ${mode === "classique" ? "bg-[#08052e] text-white" : "text-gray-700"}`}
+              className={`px-3 py-1.5 text-sm font-semibold rounded-lg ${mode === "classique" ? "bg-[#08154a] text-white" : "text-gray-700"}`}
             >
               Classique
             </button>
@@ -245,18 +337,52 @@ export default function Debate() {
               type="button"
               onClick={() => setMode("hybride")}
               disabled={!!sessionId}
-              className={`px-3 py-1.5 text-sm font-semibold rounded-lg ${mode === "hybride" ? "bg-[#08052e] text-white" : "text-gray-700"}`}
+              className={`px-3 py-1.5 text-sm font-semibold rounded-lg ${mode === "hybride" ? "bg-[#0a3a2f] text-white" : "text-gray-700"}`}
             >
               Hybride
             </button>
           </div>
         </div>
 
-        <section className="rounded-2xl bg-[#020331] text-white p-6 md:p-8 mb-6 relative overflow-hidden">
-          <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50" />
-          <p className="text-sky-200 text-sm mb-2">Débat multi-agent</p>
-          <h1 className="text-3xl font-extrabold mb-2">Ticket {ticketId || "inconnu"}</h1>
-          <p className="text-slate-200 text-sm">{ticketTitle || "Lancez le débat pour charger le contexte ticket et les techniciens."}</p>
+        <section className="rounded-[2rem] bg-[linear-gradient(135deg,#08154a_0%,#102b78_42%,#0a3a2f_100%)] text-white p-6 md:p-8 mb-6 relative overflow-hidden shadow-[0_20px_60px_-28px_rgba(8,21,74,0.95)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(55,211,182,0.14),transparent_32%)]" />
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full border-4 border-cyan-100/20" />
+          <div className="absolute left-10 bottom-0 w-36 h-36 rounded-full bg-emerald-300/10 blur-2xl" />
+          <div className="relative z-10 flex flex-col gap-5">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 mb-3 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold tracking-wide uppercase">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Salle de débat pilotée par IA
+                </div>
+                <h1 className="text-3xl md:text-4xl font-black leading-tight mb-2">Ticket {ticketId || "inconnu"}</h1>
+                <p className="text-slate-100/90 text-sm md:text-base max-w-2xl">
+                  {ticketTitle || "Lancez le débat pour charger le contexte ticket et les techniciens."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-sm font-semibold">Mode {mode}</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-sm font-semibold">{technicians.length} technicien(s)</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-sm font-semibold">{debateStats.totalMessages} messages</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-cyan-100/80 mb-1">Messages</p>
+                <p className="text-2xl font-extrabold">{debateStats.totalMessages}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-cyan-100/80 mb-1">Questions admin</p>
+                <p className="text-2xl font-extrabold">{debateStats.adminQuestions}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-cyan-100/80 mb-1">Réponses agents</p>
+                <p className="text-2xl font-extrabold">{debateStats.agentResponses}</p>
+              </div>
+            </div>
+          </div>
         </section>
 
         {error && (
@@ -272,61 +398,195 @@ export default function Debate() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white p-5 md:p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#1a1545] inline-flex items-center gap-2">
+        <div className={`grid grid-cols-1 gap-6 items-start ${isChatFullscreen ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
+          <section
+            ref={chatPanelRef}
+            className={`rounded-3xl border border-gray-200/80 bg-white/90 backdrop-blur p-4 md:p-5 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ${
+              isChatFullscreen
+                ? "fixed inset-4 md:inset-6 z-50 flex h-[calc(100vh-2rem)] md:h-[calc(100vh-3rem)] flex-col border-slate-200 bg-white shadow-[0_25px_80px_-20px_rgba(15,23,42,0.55)]"
+                : "lg:col-span-2"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3 mb-4 px-1">
+              <h2 className="text-xl font-bold text-[#11204f] inline-flex items-center gap-2">
                 <MessageSquare className="w-5 h-5" />
-                Historique du débat
+                Salle de débat
               </h2>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold">{debateStatus}</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                    statusTone === "emerald"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : statusTone === "amber"
+                        ? "bg-amber-100 text-amber-800"
+                        : statusTone === "sky"
+                          ? "bg-sky-100 text-sky-800"
+                          : statusTone === "rose"
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {debateStatus}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleChatFullscreen}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-xs font-semibold text-[#11204f] hover:bg-gray-50"
+                >
+                  {isChatFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Expand className="w-3.5 h-3.5" />}
+                  {isChatFullscreen ? "Quitter plein écran" : "Plein écran"}
+                </button>
+              </div>
             </div>
 
-            {history.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-[#fafafe] p-8 text-center text-gray-600">
-                Aucun message pour le moment.
+            <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500">Dernier émetteur</p>
+                <p className="text-sm font-semibold text-[#11204f] mt-1 truncate">{debateStats.latestMessageLabel}</p>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-[560px] overflow-auto pr-1">
-                {history.map((msg, index) => (
-                  <article
-                    key={`${msg.agent_nom}-${msg.timestamp || index}`}
-                    className={`rounded-xl border p-4 ${
-                      msg.type === "admin_question"
-                        ? "border-amber-200 bg-amber-50/70"
-                        : msg.type === "agent_reponse"
-                          ? "border-sky-200 bg-sky-50/70"
-                          : "border-gray-200 bg-[#fcfcff]"
-                    }`}
+              <div className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500">Dernière activité</p>
+                <p className="text-sm font-semibold text-[#11204f] mt-1 truncate">{debateStats.latestMessageTime || "Aucune"}</p>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500">Contexte</p>
+                <p className="text-sm font-semibold text-[#11204f] mt-1 truncate">{mode === "hybride" ? "Chat stratégique" : "Débat classique"}</p>
+              </div>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              {technicians.length === 0 ? (
+                <span className="text-xs text-gray-500">Techniciens en attente...</span>
+              ) : (
+                technicians.map((tech) => (
+                  <div
+                    key={tech.id}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#d6e4ff] bg-[#f4f8ff] text-xs font-semibold text-[#17306d]"
                   >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-[#1a1545]">{msg.agent_nom}</p>
-                        {msg.type === "admin_question" && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Question admin</span>
-                        )}
-                        {msg.type === "agent_reponse" && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-semibold">Réponse</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500 inline-flex items-center gap-2">
-                        <span>Tour {msg.tour ?? "-"}</span>
-                        {msg.llm && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">{msg.llm}</span>}
-                      </div>
+                    <span className="w-2 h-2 rounded-full bg-[#2e7be8]" />
+                    {tech.nom}
+                    <span className="text-[#4c669e] font-medium">{tech.llm || "LLM"}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className={`rounded-2xl border border-gray-200 bg-[linear-gradient(180deg,#f9fbff_0%,#ffffff_100%)] ${isChatFullscreen ? "flex-1 min-h-0 flex flex-col" : ""}`}>
+              <div className={`overflow-auto p-4 md:p-5 space-y-3 ${isChatFullscreen ? "flex-1 min-h-0" : "h-[54vh] md:h-[58vh]"}`}>
+                {history.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="max-w-md rounded-2xl border border-dashed border-[#c8d9ff] bg-[#f4f8ff] p-8 text-center text-gray-600">
+                      <p className="font-semibold text-[#18306f] mb-2">Conversation vide</p>
+                      <p className="text-sm">Lance le débat classique, ou démarre en hybride avec ta question admin depuis la zone en bas.</p>
                     </div>
-                    {msg.en_reponse_a && <p className="text-xs text-gray-500 mb-2">En réponse à: {msg.en_reponse_a}</p>}
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.contenu}</p>
-                  </article>
-                ))}
+                  </div>
+                ) : (
+                  history.map((msg, index) => {
+                    const isAdminMsg = msg.type === "admin_question";
+                    const isAgentResponse = msg.type === "agent_reponse";
+                    const isRight = isAdminMsg;
+                    const initials = (msg.agent_nom || "?")
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((p) => p.charAt(0).toUpperCase())
+                      .join("");
+
+                    return (
+                      <article key={`${msg.agent_nom}-${msg.timestamp || index}`} className={`flex gap-3 ${isRight ? "justify-end" : "justify-start"}`}>
+                        {!isRight && (
+                          <div className="w-8 h-8 rounded-full bg-[#e6efff] text-[#1c3d88] border border-[#cfe0ff] flex items-center justify-center text-[11px] font-bold shrink-0 mt-1">
+                            {initials}
+                          </div>
+                        )}
+
+                        <div
+                          className={`max-w-[88%] md:max-w-[75%] rounded-2xl border px-4 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 ${
+                            isAdminMsg
+                              ? "border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/60"
+                              : isAgentResponse
+                                ? "border-sky-200 bg-gradient-to-br from-sky-50 to-white"
+                                : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3 mb-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-bold text-[#14244f] text-sm">{msg.agent_nom}</p>
+                              {isAdminMsg && <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Admin</span>}
+                              {isAgentResponse && <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-semibold">Réponse</span>}
+                            </div>
+                            <div className="text-[11px] text-gray-500 inline-flex items-center gap-2">
+                              <span>Tour {msg.tour ?? "-"}</span>
+                              {msg.llm && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">{msg.llm}</span>}
+                            </div>
+                          </div>
+                          {msg.en_reponse_a && <p className="text-xs text-gray-500 mb-1.5">En réponse à: {msg.en_reponse_a}</p>}
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{msg.contenu}</p>
+                        </div>
+
+                        {isRight && (
+                          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center text-[11px] font-bold shrink-0 mt-1">
+                            AD
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })
+                )}
               </div>
-            )}
+
+              {isAdmin && (
+                <div className="border-t border-gray-200 p-3 md:p-4 bg-white rounded-b-2xl">
+                  <div className="rounded-2xl border border-[#c9d9ff] bg-[linear-gradient(135deg,#f7fbff_0%,#ffffff_55%,#f0fff8_100%)] p-3 shadow-sm">
+                    <label className="text-xs font-semibold text-[#17306d] inline-flex items-center gap-2 mb-2">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Question admin
+                    </label>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <textarea
+                        value={adminQuestion}
+                        onChange={(e) => setAdminQuestion(e.target.value)}
+                        placeholder={
+                          mode === "hybride"
+                            ? "Tape ta question stratégique pour les techniciens..."
+                            : "Passe en mode hybride pour poser une question admin dans le chat"
+                        }
+                        rows={2}
+                        disabled={mode !== "hybride" || !canUseAdminComposer}
+                        className="flex-1 rounded-xl border border-[#bfd4ff] bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#a8c4ff] resize-none disabled:opacity-60"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!sessionId) {
+                            startDebateWithAdminQuestion();
+                            return;
+                          }
+                          submitAdminQuestion();
+                        }}
+                        disabled={sessionId ? !canAskQuestion : !canStartWithQuestion}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0b3a2f] text-white text-sm font-semibold disabled:opacity-50 min-w-[220px] shadow-sm"
+                      >
+                        {(isProcessing || isStarting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {!sessionId ? "Démarrer avec ma question" : "Envoyer la question"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#4966a3] mt-2">
+                      {!sessionId
+                        ? "La première question sera affichée en premier message du chat."
+                        : "La question sera ajoutée en bas du fil et les réponses suivront."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
-          <aside className="space-y-4">
+          {!isChatFullscreen && (
+            <aside className="space-y-4 lg:sticky lg:top-6">
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h3 className="font-bold text-[#1a1545] mb-3 inline-flex items-center gap-2">
+              <h3 className="font-bold text-[#11204f] mb-3 inline-flex items-center gap-2">
                 <Bot className="w-4 h-4" />
-                Contrôles
+                Pilotage
               </h3>
 
               <div className="grid grid-cols-1 gap-2">
@@ -334,7 +594,7 @@ export default function Debate() {
                   type="button"
                   onClick={launchDebate}
                   disabled={!canStart}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#08052e] text-white text-sm font-semibold disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#08154a] text-white text-sm font-semibold disabled:opacity-50"
                 >
                   {isStarting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   Lancer le débat
@@ -392,94 +652,49 @@ export default function Debate() {
               </div>
             </section>
 
-            {isAdmin && (
-              <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
-                <h3 className="font-bold text-[#1a1545] mb-2 inline-flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Interaction admin
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {mode === "hybride"
-                    ? "Posez une question ciblée aux deux techniciens, puis relancez le débat ou demandez l'avis du juge."
-                    : "Passez en mode hybride avant le lancement pour poser des questions aux techniciens."}
-                </p>
-                <textarea
-                  value={adminQuestion}
-                  onChange={(e) => setAdminQuestion(e.target.value)}
-                  placeholder="Ex. Quelle cause est la plus probable et quelle action immédiate recommandez-vous ?"
-                  rows={4}
-                  className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-200 resize-none"
-                />
-                <div className="grid grid-cols-1 gap-2 mt-3">
-                  <button
-                    type="button"
-                    onClick={submitAdminQuestion}
-                    disabled={!canAskQuestion}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#08052e] text-white text-sm font-semibold disabled:opacity-50"
-                  >
-                    <Send className="w-4 h-4" />
-                    Poser la question
-                  </button>
-                  <button
-                    type="button"
-                    onClick={respondNext}
-                    disabled={!canRespond}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-amber-200 text-sm font-semibold text-[#1a1545] disabled:opacity-50"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Continuer le débat
-                  </button>
-                  <button
-                    type="button"
-                    onClick={finishDebate}
-                    disabled={!canFinish}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-amber-200 bg-white text-sm font-semibold text-[#1a1545] disabled:opacity-50"
-                  >
-                    <Scale className="w-4 h-4" />
-                    Demander l'avis du juge
-                  </button>
-                </div>
-              </section>
-            )}
-
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h3 className="font-bold text-[#1a1545] mb-3">Techniciens</h3>
+              <h3 className="font-bold text-[#11204f] mb-3 inline-flex items-center gap-2">
+                <UsersIcon className="w-4 h-4" />
+                Équipe active
+              </h3>
               {technicians.length === 0 ? (
                 <p className="text-sm text-gray-600">Aucun technicien chargé.</p>
               ) : (
                 <div className="space-y-2">
                   {technicians.map((tech) => (
-                    <div key={tech.id} className="rounded-xl bg-[#f6f7fb] p-3 border border-gray-200">
-                      <p className="text-sm font-semibold text-[#1a1545]">{tech.nom}</p>
-                      <p className="text-xs text-gray-600 mt-1">{tech.llm || "LLM non spécifié"}</p>
+                    <div key={tech.id} className="rounded-xl bg-[#f5f8ff] p-3 border border-[#d7e4ff]">
+                      <p className="text-sm font-semibold text-[#11204f]">{tech.nom}</p>
+                      <p className="text-xs text-[#4c669e] mt-1">{tech.llm || "LLM non spécifié"}</p>
                     </div>
                   ))}
                 </div>
               )}
             </section>
 
-            {interactiveMessages.length > 0 && (
-              <section className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm">
-                <h3 className="font-bold text-[#1a1545] mb-3 inline-flex items-center gap-2">
-                  <UsersIcon className="w-4 h-4" />
-                  Échanges interactifs
+            {sessionId && (
+              <section className="rounded-2xl border border-[#d8e8ff] bg-[linear-gradient(180deg,#f7fbff_0%,#ffffff_100%)] p-4 shadow-sm">
+                <h3 className="font-bold text-[#11204f] mb-3 inline-flex items-center gap-2">
+                  <Scale className="w-4 h-4" />
+                  Flux du débat
                 </h3>
-                <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                  {interactiveMessages.slice(-6).map((msg, index) => (
-                    <div key={`${msg.agent_nom}-${msg.timestamp || index}`} className="rounded-xl border border-sky-200 bg-white p-3">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-sm font-semibold text-[#1a1545]">{msg.agent_nom}</span>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">
-                          {msg.type === "admin_question" ? "Question" : "Réponse"}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.contenu}</p>
-                    </div>
-                  ))}
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div className="flex items-center justify-between rounded-xl bg-white border border-gray-200 px-3 py-2">
+                    <span>Lancer</span>
+                    <span className="font-semibold text-[#11204f]">{sessionId ? "Actif" : "Inactif"}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-white border border-gray-200 px-3 py-2">
+                    <span>Question admin</span>
+                    <span className="font-semibold text-[#11204f]">{debateStats.adminQuestions}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-white border border-gray-200 px-3 py-2">
+                    <span>Validation juge</span>
+                    <span className="font-semibold text-[#11204f]">{debateStatus === "EN_ATTENTE_VALIDATION" ? "En attente" : debateStatus === "VALIDE" ? "Terminée" : "À venir"}</span>
+                  </div>
                 </div>
               </section>
             )}
-          </aside>
+            </aside>
+          )}
         </div>
 
         <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

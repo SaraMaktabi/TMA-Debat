@@ -3,6 +3,7 @@ from fastapi import Body
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.ticket import Ticket
+from app.models.technicien import Technicien
 from app.agents.scorer import calculer_score
 from app.agents.analyseur import analyser_technologies
 from app.agents.profil import recommander_techniciens, recommander_techniciens_detaillees
@@ -18,6 +19,12 @@ class TicketCreate(BaseModel):
     environnement: str
     application: str = ""
     created_by_user_id: str | None = None
+
+
+class TicketAssign(BaseModel):
+    technicien_id: str
+    admin_nom: str | None = "admin"
+    raison: str | None = "Affectation directe depuis recommandations"
 
 router = APIRouter()
 
@@ -302,3 +309,39 @@ async def delete_ticket(ticket_id: str, requester_role: str | None = None, db: S
 
     db.delete(ticket)
     db.commit()
+
+
+@router.post("/{ticket_id}/assign")
+async def assign_ticket(ticket_id: str, payload: TicketAssign, db: Session = Depends(get_db)):
+    """Affecte directement un technicien à un ticket sans débat."""
+
+    try:
+        ticket_id_uuid = uuid.UUID(ticket_id)
+    except ValueError:
+        raise HTTPException(400, "ID ticket invalide")
+
+    try:
+        technicien_id_uuid = uuid.UUID(payload.technicien_id)
+    except ValueError:
+        raise HTTPException(400, "ID technicien invalide")
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id_uuid).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+
+    technicien = db.query(Technicien).filter(Technicien.id == technicien_id_uuid).first()
+    if not technicien:
+        raise HTTPException(404, "Technicien non trouvé")
+
+    ticket.technicien_assigne_id = technicien.id
+    ticket.statut = "AFFECTE"
+    db.commit()
+
+    return {
+        "message": "Ticket affecté avec succès",
+        "ticket_id": str(ticket.id),
+        "technicien_assigne_id": str(technicien.id),
+        "technicien_nom": f"{technicien.prenom} {technicien.nom}",
+        "valide_par": payload.admin_nom or "admin",
+        "raison": payload.raison or "Affectation directe depuis recommandations",
+    }

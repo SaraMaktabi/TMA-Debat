@@ -64,6 +64,22 @@ export const ticketAPI = {
     return response.data;
   },
 
+  // Affecter directement un technicien à un ticket (sans débat)
+  assignTechnician: async (
+    id: string,
+    payload: { technicien_id: string; admin_nom?: string; raison?: string }
+  ) => {
+    const response = await api.post(`/api/tickets/${id}/assign`, payload);
+    return response.data as {
+      message: string;
+      ticket_id: string;
+      technicien_assigne_id: string;
+      technicien_nom: string;
+      valide_par: string;
+      raison: string;
+    };
+  },
+
   // Supprimer un ticket (admin uniquement)
   delete: async (id: string, params?: { requesterRole?: string }) => {
     await api.delete(`/api/tickets/${id}`, {
@@ -103,9 +119,18 @@ export interface DebateJudgeProposal {
 }
 
 export const debatAPI = {
-  lancer: async (ticketId: string, mode: DebateMode = "classique") => {
+  lancer: async (
+    ticketId: string,
+    mode: DebateMode = "classique",
+    options?: { skipInitialMessage?: boolean }
+  ) => {
     const endpoint = mode === "hybride" ? `/api/debat/lancer-hybride/${ticketId}` : `/api/debat/lancer/${ticketId}`;
-    const response = await api.post(endpoint);
+    const response = await api.post(endpoint, null, {
+      params:
+        mode === "hybride"
+          ? { skip_initial_message: options?.skipInitialMessage ?? false }
+          : undefined,
+    });
     return response.data as {
       session_id: string;
       type: string;

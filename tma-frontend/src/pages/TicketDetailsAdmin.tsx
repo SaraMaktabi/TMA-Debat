@@ -23,6 +23,7 @@ interface Ticket {
   };
   environnement: string;
   application: string;
+  technicien_assigne_id?: string | null;
   created_by_user_id?: string | null;
   created_at?: string;
 }
@@ -50,6 +51,8 @@ export default function TicketDetailsAdmin() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [ticketClient, setTicketClient] = useState<UserDto | null>(null);
   const [clientLoading, setClientLoading] = useState(false);
+  const [assigningTechnicianId, setAssigningTechnicianId] = useState<string | null>(null);
+  const [assignmentMessage, setAssignmentMessage] = useState<string | null>(null);
 
   const logout = () => {
     clearSession();
@@ -204,6 +207,35 @@ export default function TicketDetailsAdmin() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const assignRecommendedTechnician = async (technicien: Recommendation) => {
+    if (!ticketId) return;
+    setAssignmentMessage(null);
+    setAssigningTechnicianId(technicien.id);
+
+    try {
+      const result = await ticketAPI.assignTechnician(ticketId, {
+        technicien_id: technicien.id,
+        admin_nom: currentUser?.name || "admin",
+        raison: "Affectation directe depuis la section recommandations",
+      });
+
+      setTicket((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          statut: "AFFECTE",
+          technicien_assigne_id: technicien.id,
+        };
+      });
+      setAssignmentMessage(result.message || "Ticket affecté avec succès.");
+    } catch (err: any) {
+      console.error("Erreur affectation directe:", err);
+      setAssignmentMessage(err?.response?.data?.detail || "Impossible d'affecter ce technicien pour le moment.");
+    } finally {
+      setAssigningTechnicianId(null);
+    }
   };
 
   if (loading) {
@@ -475,6 +507,12 @@ export default function TicketDetailsAdmin() {
                   Recommandation de profil technique
                 </h2>
 
+                {assignmentMessage && (
+                  <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                    {assignmentMessage}
+                  </div>
+                )}
+
                 {recommendationsLoading ? (
                   <div className="flex items-center gap-3 text-blue-700">
                     <Loader className="w-5 h-5 animate-spin" />
@@ -538,6 +576,25 @@ export default function TicketDetailsAdmin() {
                               </ul>
                             </div>
                           )}
+
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            {ticket.technicien_assigne_id === technicien.id ? (
+                              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-semibold">
+                                <CheckCircle className="w-4 h-4" />
+                                Déjà affecté à ce ticket
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => assignRecommendedTechnician(technicien)}
+                                disabled={assigningTechnicianId === technicien.id}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#08052e] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+                              >
+                                {assigningTechnicianId === technicien.id ? <Loader className="w-4 h-4 animate-spin" /> : <UsersIcon className="w-4 h-4" />}
+                                Affecter ce technicien
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

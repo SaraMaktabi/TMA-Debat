@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Bot, Zap, Shield, BarChart3, Wrench, UserCheck, Eye, Lock, X, ChevronLeft, ChevronRight, Check, Play } from "lucide-react";
+import { ArrowRight, Bot, Zap, Shield, BarChart3, Wrench, UserCheck, Eye, Lock, X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import agentTmaImage from "../assets/agentTma.jpg";
 
 export default function Home() {
