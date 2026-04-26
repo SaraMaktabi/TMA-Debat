@@ -26,6 +26,10 @@ class TicketAssign(BaseModel):
     admin_nom: str | None = "admin"
     raison: str | None = "Affectation directe depuis recommandations"
 
+
+class TicketStatusUpdate(BaseModel):
+    statut: str
+
 router = APIRouter()
 
 
@@ -34,6 +38,30 @@ def _normalize_ticket_status(statut: str | None) -> str:
     if statut == "NOUVEAU":
         return "OUVERT"
     return statut or "OUVERT"
+
+
+def _normalize_requested_status(statut: str | None) -> str:
+    if not statut:
+        return ""
+    value = statut.strip().upper()
+    if value == "NOUVEAU":
+        return "OUVERT"
+    return value
+
+
+def _normalize_role(role: str | None) -> str:
+    if not role:
+        return ""
+    return role.strip().lower()
+
+
+def _is_admin_role(role: str | None) -> bool:
+    return _normalize_role(role) == "admin"
+
+
+def _is_technician_role(role: str | None) -> bool:
+    normalized_role = _normalize_role(role)
+    return normalized_role in {"technicien", "technician"}
 
 # Fonction d'analyse en arrière-plan (NLP + Score)
 async def analyser_et_scorer_ticket_background(ticket_id: uuid.UUID, titre: str, description: str, priorite: str, environnement: str):
@@ -193,6 +221,7 @@ async def list_tickets(created_by_user_id: str | None = None, db: Session = Depe
             "score": t.score_difficulte,
             "application": t.application,
             "environnement": t.environnement,
+            "technicien_assigne_id": str(t.technicien_assigne_id) if t.technicien_assigne_id else None,
             "created_by_user_id": str(t.created_by_user_id) if t.created_by_user_id else None,
             "created_at": t.created_at.isoformat() if t.created_at else None
         } 
@@ -216,13 +245,16 @@ async def get_ticket(
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
 
-    if requester_role != "Admin" and requester_user_id:
+    if not _is_admin_role(requester_role) and requester_user_id:
         try:
             requester_user_uuid = uuid.UUID(requester_user_id)
         except ValueError:
             raise HTTPException(400, "requester_user_id invalide")
 
-        if ticket.created_by_user_id and ticket.created_by_user_id != requester_user_uuid:
+        if _is_technician_role(requester_role):
+            if ticket.technicien_assigne_id != requester_user_uuid:
+                raise HTTPException(403, "Acces refuse a ce ticket")
+        elif ticket.created_by_user_id and ticket.created_by_user_id != requester_user_uuid:
             raise HTTPException(403, "Acces refuse a ce ticket")
     
     return {
@@ -239,6 +271,59 @@ async def get_ticket(
         "technicien_assigne_id": str(ticket.technicien_assigne_id) if ticket.technicien_assigne_id else None,
         "created_by_user_id": str(ticket.created_by_user_id) if ticket.created_by_user_id else None,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None
+    }
+
+
+@router.patch("/{ticket_id}/status")
+async def update_ticket_status(
+    ticket_id: str,
+    payload: TicketStatusUpdate,
+    requester_user_id: str | None = None,
+    requester_role: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Met à jour le statut d'un ticket (admin ou technicien assigné)."""
+    try:
+        ticket_id_uuid = uuid.UUID(ticket_id)
+    except ValueError:
+        raise HTTPException(400, "ID invalide")
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id_uuid).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket non trouvé")
+
+    requested_status = _normalize_requested_status(payload.statut)
+    allowed_statuses = {"OUVERT", "EN_ANALYSE", "AFFECTE", "RESOLU"}
+    if requested_status not in allowed_statuses:
+        raise HTTPException(400, "Statut invalide")
+
+    if _is_admin_role(requester_role):
+        pass
+    elif _is_technician_role(requester_role):
+        if not requester_user_id:
+            raise HTTPException(400, "requester_user_id requis pour un technicien")
+        try:
+            requester_user_uuid = uuid.UUID(requester_user_id)
+        except ValueError:
+            raise HTTPException(400, "requester_user_id invalide")
+
+        if ticket.technicien_assigne_id != requester_user_uuid:
+            raise HTTPException(403, "Ce ticket n'est pas affecte a ce technicien")
+
+        if requested_status not in {"EN_ANALYSE", "RESOLU"}:
+            raise HTTPException(403, "Un technicien peut seulement passer en EN_ANALYSE ou RESOLU")
+    else:
+        raise HTTPException(403, "Role non autorise")
+
+    ticket.statut = requested_status
+    db.commit()
+    db.refresh(ticket)
+
+    return {
+        "message": "Statut mis a jour",
+        "ticket_id": str(ticket.id),
+        "statut": _normalize_ticket_status(ticket.statut),
+        "technicien_assigne_id": str(ticket.technicien_assigne_id) if ticket.technicien_assigne_id else None,
     }
 
 @router.post("/{ticket_id}/reanalyze")
@@ -295,7 +380,7 @@ async def reanalyze_all_pending(background_tasks: BackgroundTasks, db: Session =
 @router.delete("/{ticket_id}", status_code=204)
 async def delete_ticket(ticket_id: str, requester_role: str | None = None, db: Session = Depends(get_db)):
     """Supprime un ticket (admin uniquement)."""
-    if requester_role != "Admin":
+    if not _is_admin_role(requester_role):
         raise HTTPException(403, "Seul un admin peut supprimer un ticket")
 
     try:

@@ -29,6 +29,30 @@ export const ticketAPI = {
     return response.data;
   },
 
+  // Mettre à jour le statut d'un ticket
+  updateStatus: async (
+    id: string,
+    statut: "OUVERT" | "EN_ANALYSE" | "AFFECTE" | "RESOLU",
+    params?: { requesterUserId?: string; requesterRole?: string }
+  ) => {
+    const response = await api.patch(
+      `/api/tickets/${id}/status`,
+      { statut },
+      {
+        params: {
+          requester_user_id: params?.requesterUserId,
+          requester_role: params?.requesterRole,
+        },
+      }
+    );
+    return response.data as {
+      message: string;
+      ticket_id: string;
+      statut: string;
+      technicien_assigne_id?: string | null;
+    };
+  },
+
   // Récupérer un ticket spécifique
   getById: async (id: string, params?: { requesterUserId?: string; requesterRole?: string }) => {
     const response = await api.get(`/api/tickets/${id}`, {

@@ -10,6 +10,8 @@ import Users from "../pages/Users";
 import Login from "../pages/Login";
 import SignUp from "../pages/SignUp";
 import Demo from "../pages/Demo";
+import TechnicianDashboard from "../pages/TechnicianDashboard";
+import TechnicianTickets from "../pages/TechnicianTickets";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 export default function AppRouter() {
@@ -71,6 +73,22 @@ export default function AppRouter() {
           element={
             <ProtectedRoute adminOnly>
               <AdminTickets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tech/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Technicien"]}>
+              <TechnicianDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tech/tickets"
+          element={
+            <ProtectedRoute allowedRoles={["Technicien"]}>
+              <TechnicianTickets />
             </ProtectedRoute>
           }
         />

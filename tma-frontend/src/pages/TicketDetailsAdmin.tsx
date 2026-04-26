@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI, userAPI, type UserDto } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
@@ -83,16 +83,12 @@ export default function TicketDetailsAdmin() {
 
     fetchTicket();
 
-    // Polling automatique: re-fetch toutes les 3 secondes si l'analyse n'est pas terminée
+    // Polling automatique pour garder le statut et les infos synchro avec le backend
     const interval = setInterval(async () => {
       try {
         const data = await ticketAPI.getById(ticketId);
         const normalized = normalizeTicket(data);
         setTicket(normalized);
-        // Arrêter le polling une fois que l'analyse est complète
-        if (normalized.analyse_nlp && normalized.score_difficulte !== null && normalized.score_difficulte !== undefined) {
-          clearInterval(interval);
-        }
       } catch (err) {
         console.error("Erreur polling:", err);
       }
@@ -298,34 +294,34 @@ export default function TicketDetailsAdmin() {
             </div>
           </div>
 
-          <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-6 overflow-hidden relative">
-            <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
-            <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
-            <p className="text-sm text-sky-200 mb-2">Détail ticket admin</p>
-            <h1 className="text-3xl font-extrabold mb-2 line-clamp-2">{ticket.titre}</h1>
-            <p className="text-sm text-slate-200 flex items-center gap-2">
-              <span className="font-semibold">ID:</span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(ticket.id)}
-                className="inline-flex items-center gap-2 text-sky-200 hover:text-white"
-              >
-                {ticket.id}
-                <Copy size={14} className={copied ? "text-emerald-300" : "text-slate-300"} />
-              </button>
-            </p>
+          <section className="rounded-[2rem] bg-[linear-gradient(135deg,#08154a_0%,#102b78_58%,#3b2a79_100%)] text-white p-6 md:p-8 mb-6 overflow-hidden relative shadow-[0_20px_60px_-28px_rgba(8,21,74,0.95)] ring-1 ring-white/10">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(167,139,250,0.16),transparent_34%)]"></div>
+            <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/20"></div>
+            <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/20"></div>
+            <div className="relative z-10 flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold uppercase tracking-wide w-fit">
+                <Sparkles className="w-3.5 h-3.5" />
+                Détail ticket admin
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black leading-tight line-clamp-2 max-w-4xl">{ticket.titre}</h1>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-100/90">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15">ID: <button type="button" onClick={() => copyToClipboard(ticket.id)} className="inline-flex items-center gap-2 text-white/95 hover:text-white">{ticket.id}<Copy size={14} className={copied ? "text-emerald-300" : "text-slate-200"} /></button></span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/15">{statusStyle.label}</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/15">{priorityStyle.label}</span>
+              </div>
+            </div>
           </section>
 
           {/* Header Section */}
           <div className="mb-8">
-            <div className="flex items-start justify-between gap-6">
+            <div className="flex items-start justify-between gap-6 flex-wrap">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-[#1a1545] mb-2">Informations principales</h2>
-                <p className="text-gray-600">Vue complète du ticket, analyse IA et recommandation technique.</p>
+                <h2 className="text-2xl font-bold text-[#11204f] mb-2">Informations principales</h2>
+                <p className="text-gray-600 max-w-2xl">Vue complète du ticket, analyse IA et recommandation technique, avec une lecture plus claire et plus premium.</p>
               </div>
 
               {/* Status Badge */}
-              <div className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-lg ${statusStyle.bg} ${statusStyle.text}`}>
+              <div className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold text-base shadow-sm ring-1 ring-inset ${statusStyle.bg} ${statusStyle.text}`}>
                 <statusStyle.Icon size={22} />
                 {statusStyle.label}
               </div>
@@ -333,7 +329,7 @@ export default function TicketDetailsAdmin() {
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm ring-1 ring-white/70">
                 <p className="text-xs text-gray-500 font-semibold mb-2">PRIORITÉ</p>
                 <div className={`flex items-center gap-2 text-lg font-bold ${priorityStyle.text}`}>
                   <priorityStyle.Icon size={22} />
@@ -341,17 +337,17 @@ export default function TicketDetailsAdmin() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm ring-1 ring-white/70">
                 <p className="text-xs text-gray-500 font-semibold mb-2">APPLICATION</p>
                 <p className="text-lg font-bold text-[#1a1545]">{ticket.application}</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm ring-1 ring-white/70">
                 <p className="text-xs text-gray-500 font-semibold mb-2">ENVIRONNEMENT</p>
                 <p className="text-lg font-bold text-[#1a1545]">{ticket.environnement}</p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm ring-1 ring-white/70">
                 <p className="text-xs text-gray-500 font-semibold mb-2">CRÉÉ LE</p>
                 <p className="text-lg font-bold text-gray-900">
                   {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
@@ -365,8 +361,8 @@ export default function TicketDetailsAdmin() {
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-8">
               {/* Description */}
-              <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                <h2 className="text-2xl font-bold text-[#11204f] mb-6 flex items-center gap-3">
                   <MessageCircle className="w-6 h-6 text-blue-600" />
                   Description du Ticket
                 </h2>
@@ -377,14 +373,14 @@ export default function TicketDetailsAdmin() {
 
               {/* Score & AI Analysis */}
               {ticket.score_difficulte !== null && ticket.score_difficulte !== undefined ? (
-                <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <div className="bg-white rounded-[1.5rem] border border-gray-200 p-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                  <h2 className="text-2xl font-bold text-[#11204f] mb-6 flex items-center gap-3">
                     <Zap className="w-6 h-6 text-yellow-600" />
                     Score IA & Analyse
                   </h2>
 
-                  <div className={`rounded-xl p-8 mb-8 border-2 ${scoreStyle.bg} ${scoreStyle.border}`}>
-                    <div className="flex items-center justify-between">
+                  <div className={`rounded-[1.5rem] p-8 mb-8 border-2 ${scoreStyle.bg} ${scoreStyle.border} shadow-sm`}>
+                    <div className="flex items-center justify-between gap-6 flex-wrap">
                       <div>
                         <p className="text-sm text-gray-700 font-semibold mb-3">SCORE DE DIFFICULTÉ</p>
                         <p className={`text-5xl font-bold ${scoreStyle.text} mb-3`}>
@@ -395,7 +391,7 @@ export default function TicketDetailsAdmin() {
                         </p>
                       </div>
 
-                      <div className={`w-32 h-32 rounded-full border-4 flex items-center justify-center ${scoreStyle.border}`} style={{backgroundColor: scoreStyle.bg}}>
+                      <div className={`w-32 h-32 rounded-full border-4 flex items-center justify-center bg-white/70 backdrop-blur ${scoreStyle.border}`} style={{backgroundColor: scoreStyle.bg}}>
                         <p className={`text-5xl font-bold ${scoreStyle.text}`}>
                           {Math.round(ticket.score_difficulte)}%
                         </p>
@@ -405,12 +401,12 @@ export default function TicketDetailsAdmin() {
 
                   {ticket.facteurs_score && ticket.facteurs_score.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-[#11204f] mb-4 flex items-center gap-2">
                          Facteurs de Complexité
                       </h3>
                       <div className="flex flex-wrap gap-3">
                         {ticket.facteurs_score.map((facteur: string, i: number) => (
-                          <span key={i} className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                          <span key={i} className="bg-gray-100 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-200 transition shadow-sm">
                             {facteur}
                           </span>
                         ))}
@@ -419,7 +415,7 @@ export default function TicketDetailsAdmin() {
                   )}
                 </div>
               ) : (
-                <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-8 shadow-sm">
+                <div className="bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] border-2 border-blue-200 rounded-[1.5rem] p-8 shadow-sm">
                   <div className="flex items-center gap-4">
                     <Loader className="w-6 h-6 text-blue-600 animate-spin" />
                     <div>
@@ -435,8 +431,8 @@ export default function TicketDetailsAdmin() {
 
               {/* AI Analysis Details */}
               {ticket.analyse_nlp && (
-                <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <div className="bg-white rounded-[1.5rem] border border-gray-200 p-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                  <h2 className="text-2xl font-bold text-[#11204f] mb-6 flex items-center gap-3">
                     <TrendingUp className="w-6 h-6 text-purple-600" />
                     Analyse Détaillée
                   </h2>
@@ -462,7 +458,7 @@ export default function TicketDetailsAdmin() {
                         <p className="text-sm text-gray-600 font-semibold mb-3 flex items-center gap-2"><Cpu size={16} /> TECHNOLOGIES DÉTECTÉES</p>
                         <div className="flex flex-wrap gap-3">
                           {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
-                            <span key={i} className="bg-purple-100 text-purple-800 px-4 py-2 rounded-lg text-sm font-semibold">
+                            <span key={i} className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm font-semibold shadow-sm">
                               {tech}
                             </span>
                           ))}
@@ -475,7 +471,7 @@ export default function TicketDetailsAdmin() {
                         <p className="text-sm text-gray-600 font-semibold mb-3 flex items-center gap-2"><Database size={16} /> SYSTÈMES IMPACTÉS</p>
                         <div className="flex flex-wrap gap-3">
                           {ticket.analyse_nlp.systemes_impactes.map((sys: string, i: number) => (
-                            <span key={i} className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm font-semibold">
+                            <span key={i} className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-semibold shadow-sm">
                               {sys}
                             </span>
                           ))}
@@ -486,7 +482,7 @@ export default function TicketDetailsAdmin() {
                     {ticket.analyse_nlp.urgence_percue && (
                       <div>
                         <p className="text-sm text-gray-600 font-semibold mb-3 flex items-center gap-2"><AlertTriangle size={16} /> URGENCE PERÇUE</p>
-                        <div className={`inline-block px-6 py-3 rounded-lg font-bold text-lg ${
+                        <div className={`inline-block px-6 py-3 rounded-full font-bold text-lg shadow-sm ${
                           ticket.analyse_nlp.urgence_percue === "critique" ? "bg-red-100 text-red-700" :
                           ticket.analyse_nlp.urgence_percue === "haute" ? "bg-orange-100 text-orange-700" :
                           ticket.analyse_nlp.urgence_percue === "moyenne" ? "bg-yellow-100 text-yellow-700" :
@@ -501,14 +497,14 @@ export default function TicketDetailsAdmin() {
               )}
 
               {/* Recommandations de profils techniques */}
-              <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                <h2 className="text-2xl font-bold text-[#11204f] mb-6 flex items-center gap-3">
                   <Target className="w-6 h-6 text-blue-600" />
                   Recommandation de profil technique
                 </h2>
 
                 {assignmentMessage && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                  <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 shadow-sm">
                     {assignmentMessage}
                   </div>
                 )}
@@ -519,7 +515,7 @@ export default function TicketDetailsAdmin() {
                     Calcul des recommandations...
                   </div>
                 ) : recommendations.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600">
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[linear-gradient(180deg,#fafbff_0%,#f5f7fb_100%)] p-6 text-gray-600">
                     Aucun technicien disponible pour cette analyse.
                   </div>
                 ) : (
@@ -532,7 +528,7 @@ export default function TicketDetailsAdmin() {
                         "text-gray-700 bg-gray-100";
 
                       return (
-                        <div key={technicien.id} className="rounded-xl border border-gray-200 p-5 hover:shadow-md transition bg-white">
+                        <div key={technicien.id} className="rounded-[1.5rem] border border-gray-200 p-5 hover:shadow-xl transition-all duration-200 bg-white shadow-sm hover:-translate-y-0.5">
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <div className="flex items-center gap-2 mb-1">
@@ -542,7 +538,7 @@ export default function TicketDetailsAdmin() {
                               <p className="text-sm text-gray-600">{technicien.email}</p>
                             </div>
 
-                            <div className={`px-4 py-2 rounded-full font-bold text-sm ${scoreColor}`}>
+                            <div className={`px-4 py-2 rounded-full font-bold text-sm shadow-sm ${scoreColor}`}>
                               {technicien.score_compatibilite}/100
                             </div>
                           </div>
@@ -554,7 +550,7 @@ export default function TicketDetailsAdmin() {
                                 {technicien.top_competences.map((competence, competenceIndex) => (
                                   <span
                                     key={competenceIndex}
-                                    className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-700 px-3 py-1 text-xs font-semibold"
+                                    className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-700 px-3 py-1 text-xs font-semibold shadow-sm"
                                   >
                                     {competence}
                                   </span>
@@ -577,9 +573,9 @@ export default function TicketDetailsAdmin() {
                             </div>
                           )}
 
-                          <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between gap-3 flex-wrap">
                             {ticket.technicien_assigne_id === technicien.id ? (
-                              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-semibold">
+                              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold shadow-sm">
                                 <CheckCircle className="w-4 h-4" />
                                 Déjà affecté à ce ticket
                               </div>
@@ -588,7 +584,7 @@ export default function TicketDetailsAdmin() {
                                 type="button"
                                 onClick={() => assignRecommendedTechnician(technicien)}
                                 disabled={assigningTechnicianId === technicien.id}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#08052e] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[linear-gradient(135deg,#08154a_0%,#123b8f_100%)] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 shadow-[0_12px_25px_-16px_rgba(8,21,74,0.75)] transition-all duration-200 hover:-translate-y-0.5"
                               >
                                 {assigningTechnicianId === technicien.id ? <Loader className="w-4 h-4 animate-spin" /> : <UsersIcon className="w-4 h-4" />}
                                 Affecter ce technicien
@@ -606,8 +602,8 @@ export default function TicketDetailsAdmin() {
             {/* Right Sidebar */}
             <div className="space-y-6">
               {/* Client Card */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-[#1a1545] mb-4 inline-flex items-center gap-2">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                <h3 className="text-lg font-bold text-[#11204f] mb-4 inline-flex items-center gap-2">
                   <UserCircle2 className="w-5 h-5" />
                   Client du ticket
                 </h3>
@@ -619,7 +615,7 @@ export default function TicketDetailsAdmin() {
                   </div>
                 ) : ticketClient ? (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-gray-200 bg-[#f8f8fb] p-4">
+                    <div className="rounded-2xl border border-gray-200 bg-[#f8f8fb] p-4 shadow-sm">
                       <p className="text-sm text-gray-500 font-semibold">Nom complet</p>
                       <p className="text-base font-bold text-gray-900 mt-1">{ticketClient.name}</p>
                     </div>
@@ -640,7 +636,7 @@ export default function TicketDetailsAdmin() {
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">
-                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#eef0ff] text-[#1a1545]">
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#eef0ff] text-[#1a1545] shadow-sm">
                         {ticketClient.role}
                       </span>
                       <span
@@ -655,7 +651,7 @@ export default function TicketDetailsAdmin() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-gray-300 bg-[#fafafe] p-4 text-sm text-gray-700">
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafe] p-4 text-sm text-gray-700">
                     {ticket.created_by_user_id
                       ? "Profil client introuvable pour ce ticket."
                       : "Ce ticket n'est pas encore lié à un client."}
@@ -664,8 +660,8 @@ export default function TicketDetailsAdmin() {
               </div>
 
               {/* Summary Card */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm sticky top-6">
-                <h3 className="text-lg font-bold text-[#1a1545] mb-6 inline-flex items-center gap-2">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70 sticky top-6">
+                <h3 className="text-lg font-bold text-[#11204f] mb-6 inline-flex items-center gap-2">
                   <FileText className="w-5 h-5 text-[#1a1545]" />
                   Résumé
                 </h3>
@@ -700,7 +696,7 @@ export default function TicketDetailsAdmin() {
 
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full mt-6 px-4 py-3 bg-[#08052e] text-white font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
+                  className="w-full mt-6 px-4 py-3 bg-[linear-gradient(135deg,#08154a_0%,#123b8f_100%)] text-white font-semibold rounded-full hover:opacity-95 transition flex items-center justify-center gap-2 shadow-[0_12px_25px_-16px_rgba(8,21,74,0.75)]"
                 >
                   <Clock size={18} />
                   Actualiser
@@ -708,7 +704,7 @@ export default function TicketDetailsAdmin() {
 
                 <button
                   onClick={() => navigate(`/debat/${ticket.id}`)}
-                  className="w-full mt-3 px-4 py-3 bg-white border border-gray-200 text-[#1a1545] font-semibold rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                  className="w-full mt-3 px-4 py-3 bg-white border border-gray-200 text-[#11204f] font-semibold rounded-full hover:bg-gray-50 transition flex items-center justify-center gap-2 shadow-sm"
                 >
                   <MessageCircle size={18} />
                   Ouvrir débat IA

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Bot, Eye, EyeOff, ArrowRight, Shield, Zap, Lock } from "lucide-react";
 import { userAPI } from "../api/client";
-import { clearSession, saveSession } from "../utils/auth";
+import { clearSession, isAdminRole, isTechnicianRole, saveSession } from "../utils/auth";
 
 interface ApiErrorLike {
   response?: {
@@ -38,7 +38,9 @@ export default function Login() {
         role: response.user.role,
       });
 
-      const isAdminUser = response.user.role === "Admin";
+      const isAdminUser = isAdminRole(response.user.role);
+      const isTechnicianUser = isTechnicianRole(response.user.role);
+
       if (expectedRole === "admin" && !isAdminUser) {
         clearSession();
         setLoginError("Ce compte n'a pas les droits administrateur.");
@@ -46,7 +48,7 @@ export default function Login() {
         return;
       }
 
-      if (expectedRole === "client" && isAdminUser) {
+      if (expectedRole === "client" && (isAdminUser || isTechnicianUser)) {
         clearSession();
         setLoginError("Connectez-vous avec un compte client pour cet acces.");
         setIsLoading(false);
@@ -60,6 +62,11 @@ export default function Login() {
 
       if (isAdminUser) {
         navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      if (isTechnicianUser) {
+        navigate("/tech/dashboard", { replace: true });
         return;
       }
 

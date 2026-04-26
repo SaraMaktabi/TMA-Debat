@@ -95,6 +95,23 @@ export default function AdminTickets() {
     fetchTickets().then(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTickets();
+    }, 10000);
+
+    const handleFocus = () => {
+      fetchTickets();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
   const refreshTickets = async () => {
     setRefreshing(true);
     await fetchTickets();

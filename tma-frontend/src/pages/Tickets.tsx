@@ -69,6 +69,23 @@ export default function Tickets() {
     fetchTickets();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTickets();
+    }, 10000);
+
+    const handleFocus = () => {
+      fetchTickets();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
   // Fonction pour mapper la priorité à un niveau d'urgence pour l'affichage
   const getUrgencyFromPriorite = (priorite: string): string => {
     switch (priorite) {

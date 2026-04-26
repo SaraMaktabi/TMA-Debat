@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, AlertTriangle, CheckCircle, Search, Users, HelpCircle, Bug, Shield, Database, Cpu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ticketAPI } from "../api/client";
-import { getSession } from "../utils/auth";
+import { getSession, isTechnicianRole } from "../utils/auth";
 
 interface Ticket {
   id: string;
@@ -31,7 +31,7 @@ export default function TicketDetails() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const backPath = isTechnicianRole(session?.role) ? "/tech/tickets" : "/tickets";
 
   useEffect(() => {
     if (!ticketId) return;
@@ -54,15 +54,21 @@ export default function TicketDetails() {
 
     fetchTicket();
 
-    let interval: any;
-    if (autoRefresh && !loading && ticket && !ticket.score) {
-      interval = setInterval(() => {
-        fetchTicket();
-      }, 5000);
-    }
+    const interval = setInterval(() => {
+      fetchTicket();
+    }, 10000);
 
-    return () => clearInterval(interval);
-  }, [ticketId, autoRefresh, ticket?.score]);
+    const handleFocus = () => {
+      fetchTicket();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [ticketId, session?.id, session?.role]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return { bg: "bg-red-100", text: "text-red-700", label: "Très haute difficulté" };
@@ -118,11 +124,13 @@ export default function TicketDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-900 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Chargement du ticket...</p>
-          {!ticket?.score && <p className="text-sm text-gray-500 mt-2">L'analyse IA est en cours...</p>}
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#eef6ff_0%,#f7f9fc_40%,#eef2ef_100%)] flex items-center justify-center px-4">
+        <div className="rounded-[2rem] border border-white/70 bg-white/80 backdrop-blur px-8 py-10 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.45)] text-center max-w-sm w-full">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#08154a_0%,#0a3a2f_100%)] text-white shadow-lg shadow-[#08154a]/20">
+            <Loader className="w-8 h-8 animate-spin" />
+          </div>
+          <p className="text-lg font-bold text-[#11204f] mb-2">Chargement du ticket</p>
+          <p className="text-sm text-gray-600">{!ticket?.score ? "L'analyse IA est en cours..." : "Préparation de la vue détaillée."}</p>
         </div>
       </div>
     );
@@ -130,22 +138,25 @@ export default function TicketDetails() {
 
   if (error || !ticket) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="border-b border-gray-200 bg-white sticky top-0 z-50">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fdf2f2_0%,#fff7f7_35%,#f5f7fb_100%)]">
+        <nav className="border-b border-white/70 bg-white/70 backdrop-blur sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 py-4">
             <button
-              onClick={() => navigate("/tickets")}
-              className="flex items-center gap-2 text-blue-900 hover:text-blue-950 font-medium"
+              onClick={() => navigate(backPath)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-gray-200 text-blue-900 hover:bg-gray-50 font-medium shadow-sm"
             >
               <ArrowLeft size={20} />
               Retour aux tickets
             </button>
           </div>
         </nav>
-        <div className="flex items-center justify-center pt-20">
-          <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-            <p className="text-gray-600">{error || "Ticket introuvable"}</p>
+        <div className="flex items-center justify-center pt-20 px-4">
+          <div className="rounded-[2rem] border border-red-100 bg-white/85 backdrop-blur px-8 py-10 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.35)] text-center max-w-sm w-full">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <p className="text-lg font-bold text-[#11204f] mb-2">Impossible de charger le ticket</p>
+            <p className="text-sm text-gray-600">{error || "Ticket introuvable"}</p>
           </div>
         </div>
       </div>
@@ -159,12 +170,12 @@ export default function TicketDetails() {
   const StatusIcon = statusInfo.Icon;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0%,#f7f9fc_40%,#eef2ef_100%)]">
+      <nav className="border-b border-white/70 bg-white/70 backdrop-blur sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <button
-            onClick={() => navigate("/tickets")}
-            className="flex items-center gap-2 text-blue-900 hover:text-blue-950 font-medium transition"
+            onClick={() => navigate(backPath)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-gray-200 text-blue-900 hover:bg-gray-50 font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5"
           >
             <ArrowLeft size={20} />
             Retour aux tickets
@@ -174,34 +185,38 @@ export default function TicketDetails() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">{ticket.titre}</h1>
-              <p className="text-gray-600 mt-2">ID: <span className="font-mono text-blue-900">{ticket.id}</span></p>
+          <div className="rounded-[2rem] bg-[linear-gradient(135deg,#08154a_0%,#102b78_58%,#3b2a79_100%)] text-white p-6 md:p-8 relative overflow-hidden shadow-[0_20px_60px_-28px_rgba(8,21,74,0.95)] ring-1 ring-white/10 mb-4">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(167,139,250,0.16),transparent_34%)]"></div>
+            <div className="relative z-10 flex items-start justify-between gap-6 flex-wrap">
+              <div className="max-w-4xl">
+                <h1 className="text-4xl md:text-5xl font-black leading-tight">{ticket.titre}</h1>
+                <p className="text-slate-100/90 mt-3">Analyse, priorisation et contexte complet du ticket dans une interface plus lisible et plus premium.</p>
+                <p className="text-slate-200 mt-3 text-sm">ID: <span className="font-mono text-white">{ticket.id}</span></p>
+              </div>
+              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium ${statusInfo.color} bg-white/10 border border-white/15`}>
+                <StatusIcon className="w-4 h-4" />
+                {statusInfo.label}
+              </span>
             </div>
-            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium ${statusInfo.color}`}>
-              <StatusIcon className="w-4 h-4" />
-              {statusInfo.label}
-            </span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
               <p className="text-xs text-gray-500 mb-1">Priorité</p>
               <p className={`font-bold text-lg ${priorityInfo.color} inline-flex items-center gap-2`}>
                 <PriorityIcon className="w-5 h-5" />
                 {priorityInfo.label}
               </p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
               <p className="text-xs text-gray-500 mb-1">Environnement</p>
               <p className="font-bold text-lg text-blue-900">{ticket.environnement}</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
               <p className="text-xs text-gray-500 mb-1">Application</p>
               <p className="font-bold text-lg text-blue-900">{ticket.application}</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
               <p className="text-xs text-gray-500 mb-1">Créé le</p>
               <p className="font-bold text-sm text-blue-900">
                 {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
@@ -212,8 +227,8 @@ export default function TicketDetails() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+              <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
                 <MessageCircle size={20} />
                 Description
               </h2>
@@ -221,20 +236,20 @@ export default function TicketDetails() {
             </div>
 
             {ticket.score !== null && ticket.score !== undefined ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
                   <Zap size={20} className="text-yellow-600" />
                   Analyse IA & Score
                 </h2>
 
-                <div className={`${scoreInfo?.bg} rounded-lg p-6 mb-6`}>
-                  <div className="flex items-center justify-between">
+                <div className={`${scoreInfo?.bg} rounded-[1.5rem] p-6 mb-6 shadow-sm`}>
+                  <div className="flex items-center justify-between gap-6 flex-wrap">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Score de Difficulté</p>
                       <p className={`text-4xl font-bold ${scoreInfo?.text}`}>{ticket.score}/100</p>
                       <p className={`text-sm font-medium mt-2 ${scoreInfo?.text}`}>{scoreInfo?.label}</p>
                     </div>
-                    <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center" style={{
+                    <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center bg-white/70 backdrop-blur" style={{
                       borderColor: scoreInfo?.text === "text-red-700" ? "#dc2626" : 
                                    scoreInfo?.text === "text-orange-700" ? "#ea580c" :
                                    scoreInfo?.text === "text-yellow-700" ? "#ca8a04" : "#16a34a"
@@ -246,13 +261,13 @@ export default function TicketDetails() {
 
                 {ticket.facteurs && ticket.facteurs.length > 0 && (
                   <div>
-                    <h3 className="font-semibold text-gray-900 mb-3 inline-flex items-center gap-2">
+                    <h3 className="font-semibold text-[#11204f] mb-3 inline-flex items-center gap-2">
                       <Search className="w-4 h-4" />
                       Facteurs de complexité
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {ticket.facteurs.map((facteur: string, i: number) => (
-                        <span key={i} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                        <span key={i} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium shadow-sm">
                           {facteur}
                         </span>
                       ))}
@@ -261,7 +276,7 @@ export default function TicketDetails() {
                 )}
               </div>
             ) : (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 shadow-sm">
+              <div className="bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] border border-blue-200 rounded-[1.5rem] p-6 shadow-sm">
                 <div className="flex items-center gap-3">
                   <Loader className="w-5 h-5 text-blue-600 animate-spin" />
                   <div>
@@ -273,8 +288,8 @@ export default function TicketDetails() {
             )}
 
             {ticket.analyse_nlp && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
+                <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
                   <TrendingUp size={20} className="text-purple-600" />
                   Analyse Détaillée
                 </h2>
@@ -301,7 +316,7 @@ export default function TicketDetails() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
-                          <span key={i} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+                            <span key={i} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium shadow-sm">
                             {tech}
                           </span>
                         ))}
@@ -317,7 +332,7 @@ export default function TicketDetails() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {ticket.analyse_nlp.systemes_impactes.map((sys: string, i: number) => (
-                          <span key={i} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                            <span key={i} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium shadow-sm">
                             {sys}
                           </span>
                         ))}
@@ -331,7 +346,7 @@ export default function TicketDetails() {
                         <AlertTriangle className="w-4 h-4" />
                         Urgence Perçue
                       </p>
-                      <div className={`inline-block px-4 py-2 rounded-lg font-semibold ${
+                      <div className={`inline-block px-4 py-2 rounded-full font-semibold shadow-sm ${
                         ticket.analyse_nlp.urgence_percue === "critique" ? "bg-red-100 text-red-700" :
                         ticket.analyse_nlp.urgence_percue === "haute" ? "bg-orange-100 text-orange-700" :
                         ticket.analyse_nlp.urgence_percue === "moyenne" ? "bg-yellow-100 text-yellow-700" :
@@ -347,8 +362,8 @@ export default function TicketDetails() {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm sticky top-24">
-              <h3 className="font-bold text-gray-900 mb-4">Informations</h3>
+              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70 sticky top-24">
+              <h3 className="font-bold text-[#11204f] mb-4">Informations</h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-gray-500">Score</p>
@@ -371,23 +386,15 @@ export default function TicketDetails() {
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={autoRefresh && !ticket.score}
-                    onChange={(e) => setAutoRefresh(e.target.checked)}
-                    disabled={!!ticket.score}
-                    className="w-4 h-4 rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-600">
-                    {ticket.score ? "Analyse terminée" : "Actualiser automatiquement"}
-                  </span>
-                </label>
+                <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                  <Clock size={14} />
+                  Synchronisation automatique active
+                </div>
               </div>
 
               <button
                 onClick={() => window.location.reload()}
-                className="w-full mt-4 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 font-medium transition flex items-center justify-center gap-2"
+                className="w-full mt-4 px-4 py-2 bg-[linear-gradient(135deg,#08154a_0%,#123b8f_100%)] text-white rounded-full hover:opacity-95 font-medium transition flex items-center justify-center gap-2 shadow-[0_12px_25px_-16px_rgba(8,21,74,0.75)]"
               >
                 <Clock size={16} />
                 Actualiser

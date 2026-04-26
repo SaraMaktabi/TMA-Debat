@@ -36,5 +36,18 @@ export function isAuthenticated(): boolean {
 
 export function isAdmin(): boolean {
   const user = getSession();
-  return user?.role === "Admin";
+  return normalizeRole(user?.role) === "admin";
+}
+
+export function normalizeRole(role: string | undefined | null): string {
+  return (role || "").trim().toLowerCase();
+}
+
+export function isTechnicianRole(role: string | undefined | null): boolean {
+  const normalized = normalizeRole(role);
+  return normalized === "technicien" || normalized === "technician";
+}
+
+export function isAdminRole(role: string | undefined | null): boolean {
+  return normalizeRole(role) === "admin";
 }
