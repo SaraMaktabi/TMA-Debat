@@ -222,7 +222,7 @@ export default function Dashboard() {
                 <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
                 <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
                 <p className="text-sm text-sky-200 mb-2">Pilotage intelligent</p>
-                <h1 className="text-3xl font-extrabold mb-3">Vue globale TMA</h1>
+                <h1 className="text-3xl font-extrabold mb-3">Vue globale Thinkgrid</h1>
                 <p className="text-sm text-slate-200 max-w-xl">
                   Supervisez vos tickets, l'activite equipe et les priorites critiques en un seul espace.
                 </p>

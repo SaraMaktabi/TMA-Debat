@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Home from "../pages/Home";
 import Tickets from "../pages/Tickets";
 import TicketDetails from "../pages/TicketDetails";
@@ -13,10 +13,22 @@ import Demo from "../pages/Demo";
 import TechnicianDashboard from "../pages/TechnicianDashboard";
 import TechnicianTickets from "../pages/TechnicianTickets";
 import ProtectedRoute from "../components/ProtectedRoute";
+import SiteNavbar from "../components/SiteNavbar";
 
-export default function AppRouter() {
+function RouterInner() {
+  const location = useLocation();
+  const hideNavbar =
+    location.pathname === "/login" ||
+    location.pathname === "/signup" ||
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname.startsWith("/users") ||
+    location.pathname.startsWith("/admin-tickets") ||
+    location.pathname.startsWith("/ticket-details") ||
+    location.pathname.startsWith("/tech/");
+
   return (
-    <BrowserRouter>
+    <>
+      {!hideNavbar && <SiteNavbar />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/demo" element={<Demo />} />
@@ -95,6 +107,14 @@ export default function AppRouter() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
       </Routes>
+    </>
+  );
+}
+
+export default function AppRouter() {
+  return (
+    <BrowserRouter>
+      <RouterInner />
     </BrowserRouter>
   );
 }

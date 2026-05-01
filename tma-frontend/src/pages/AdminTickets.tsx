@@ -258,7 +258,7 @@ export default function AdminTickets() {
               <Bot className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-lg text-gray-900">TMA System</span>
+              <span className="font-bold text-lg text-gray-900">Thinkgrid</span>
             </div>
           </Link>
         </div>

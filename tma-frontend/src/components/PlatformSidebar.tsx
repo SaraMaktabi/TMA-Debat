@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { Bot, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SessionUser } from "../utils/auth";
+import thinkgridLogo from "../assets/Thinkgrid.png";
 
 export type SidebarItem = {
   icon: LucideIcon;
@@ -39,13 +40,7 @@ export default function PlatformSidebar({ currentUser, menuItems, onLogout }: Pl
     <aside className="w-72 bg-[#d7cdfb] border-r border-white/60 shadow-sm sticky top-0 h-screen overflow-y-auto shrink-0">
       <div className="p-6 border-b border-white/50 bg-[linear-gradient(180deg,#dbe5ff_0%,#d7cdfb_100%)]">
         <Link to="/" className="flex items-center gap-3 group hover:opacity-90 transition-all duration-300">
-          <div className="w-11 h-11 rounded-2xl shadow-md flex items-center justify-center text-white" style={{ backgroundColor: "#08052e" }}>
-            <Bot className="w-6 h-6" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-bold text-lg text-gray-900">TMA System</span>
-            <span className="text-xs text-gray-600">Gestion intelligente</span>
-          </div>
+          <img src={thinkgridLogo} alt="Thinkgrid" className="h-12 w-auto" />
         </Link>
       </div>
 

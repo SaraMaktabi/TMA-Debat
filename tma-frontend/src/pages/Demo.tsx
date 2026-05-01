@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Bot, Settings, User, Check } from "lucide-react";
+import { Settings, User, Check, ArrowRight, Zap, Users as UsersIcon } from "lucide-react";
+import thinkgridLogo from "../assets/Thinkgrid.png";
 
 export default function Demo() {
   const navigate = useNavigate();
@@ -19,137 +20,152 @@ export default function Demo() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Bot className="w-8 h-8 text-blue-900" />
-            <span className="font-semibold text-xl text-gray-900">TMA System</span>
-          </Link>
-          <Link
-            to="/"
-            className="px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
-          >
-            Retour à l'accueil
-          </Link>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Comment souhaitez-vous accéder ?
-          </h1>
-          <div className="flex justify-center">
-            <p className="text-lg text-gray-600 max-w-2xl text-center">
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="pt-32 pb-16 px-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-200">
+       
+          <div className="text-center mb-12">
+            <h1 className="text-5xl md:text-6xl font-black text-gray-900 mb-6 leading-tight">
+              Choisissez votre accès
+            </h1>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Connectez-vous en tant qu'administrateur pour gérer le système ou en tant que client pour créer et suivre vos tickets.
             </p>
           </div>
-        </div>
+        
+      </section>
 
-        {/* Access Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-10">
-          {/* Admin Dashboard Card */}
-          <div className="group bg-white rounded-xl border-2 border-gray-200 p-6 hover:border-gray-900 hover:shadow-lg transition-all duration-300 cursor-pointer">
-            {/* Icon */}
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 bg-gray-900 rounded-xl flex items-center justify-center group-hover:bg-[#08052e] transition-colors">
-                <Settings className="w-7 h-7 text-white" />
+      {/* Main Content */}
+      <section className="py-0 px-6">
+        <div className="max-w-5xl mx-auto">
+          {/* Access Cards */}
+          <div className="grid md:grid-cols-2 gap-8 mb-12">
+            {/* Admin Dashboard Card */}
+            <div className="group bg-white rounded-2xl border-2 border-[#020331] p-8 hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-1">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-[#020331] rounded-2xl flex items-center justify-center group-hover:bg-[#0a0844] transition-colors shadow-lg">
+                  <Settings className="w-8 h-8 text-white" />
+                </div>
+              </div>
+
+              {/* Title & Subtitle */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Accès Administrateur</h2>
+              <p className="text-gray-600 mb-6 font-medium text-center">
+                Gestion complète du système
+              </p>
+
+              {/* Features List */}
+              <div className="space-y-3 mb-8">
+                {adminFeatures.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                      <Check className="w-3 h-3 text-white font-bold" />
+                    </div>
+                    <span className="text-gray-700 text-sm font-medium">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => navigate("/login?role=admin&next=/users")}
+                className="w-full px-6 py-3 bg-[#020331] text-white font-bold rounded-lg hover:bg-[#0a0844] transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                <Settings className="w-5 h-5" />
+                Accéder en tant qu'Admin
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+
+            {/* Client Portal Card */}
+            <div className="group bg-white rounded-2xl border-2 border-[#d7cdfb] p-8 hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-1">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#d7cdfb] to-[#c8b8f0] rounded-2xl flex items-center justify-center group-hover:from-[#c8b8f0] group-hover:to-[#d7cdfb] transition-all shadow-lg">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+              </div>
+
+              {/* Title & Subtitle */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Accès Client</h2>
+              <p className="text-gray-600 mb-6 font-medium text-center">
+                Espace client personnel
+              </p>
+
+              {/* Features List */}
+              <div className="space-y-3 mb-8">
+                {clientFeatures.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                      <Check className="w-3 h-3 text-white font-bold" />
+                    </div>
+                    <span className="text-gray-700 text-sm font-medium">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => navigate("/login?role=client&next=/tickets")}
+                className="w-full px-6 py-3 bg-gradient-to-r from-[#d7cdfb] to-[#c8b8f0] text-gray-900 font-bold rounded-lg hover:from-[#c8b8f0] hover:to-[#b9a4e5] transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                <User className="w-5 h-5" />
+                Accéder en tant que Client
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+          </div>
+
+          {/* Info Section */}
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200 mb-12">
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#020331] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Rapide</h3>
+                <p className="text-sm text-gray-600">Configuration instantanée et accès immédiat à la plateforme</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#d7cdfb] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                  <UsersIcon className="w-6 h-6 text-gray-900" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Collaboratif</h3>
+                <p className="text-sm text-gray-600">Travaillez ensemble en temps réel avec votre équipe</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#020331] rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                  <Check className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Sécurisé</h3>
+                <p className="text-sm text-gray-600">Authentification sécurisée et données chiffrées</p>
               </div>
             </div>
-
-            {/* Title & Subtitle */}
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Accès Administrateur</h2>
-            <p className="text-gray-600 mb-4 font-medium text-sm">
-              Gestion complète du système
-            </p>
-            <div className="mb-6"></div>
-
-            {/* Features List */}
-            <div className="space-y-2 mb-5">
-              {adminFeatures.map((feature, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <Check className="w-2.5 h-2.5 text-white" />
-                  </div>
-                  <span className="text-gray-700 text-xs">{feature}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA Button */}
-            <button
-              onClick={() => navigate("/login?role=admin&next=/users")}
-              className="w-full px-4 py-2.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-[#08052e] transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-            >
-              <Settings className="w-4 h-4" />
-              Accéder en tant qu'Admin
-            </button>
           </div>
 
-          {/* Client Portal Card */}
-          <div className="group bg-white rounded-xl border-2 border-gray-200 p-6 hover:border-blue-400 hover:shadow-lg transition-all duration-300 cursor-pointer">
-            {/* Icon */}
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-500 rounded-xl flex items-center justify-center group-hover:from-blue-500 group-hover:to-blue-600 transition-all">
-                <User className="w-7 h-7 text-white" />
-              </div>
-            </div>
-
-            {/* Title & Subtitle */}
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Accès Client</h2>
-            <p className="text-gray-600 mb-4 font-medium text-sm">
-              Espace client personnel
+          {/* Bottom CTA */}
+          <div className="text-center">
+            <p className="text-gray-600 text-base mb-6">
+              Vous n'avez pas encore de compte ?
             </p>
-            <div className="mb-6"></div>
-
-            {/* Features List */}
-            <div className="space-y-2 mb-5">
-              {clientFeatures.map((feature, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <Check className="w-2.5 h-2.5 text-white" />
-                  </div>
-                  <span className="text-gray-700 text-xs">{feature}</span>
-                </div>
-              ))}
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Link
+                to="/signup"
+                className="inline-flex items-center gap-2 px-8 py-3 bg-[#020331] text-white font-bold rounded-lg hover:bg-[#0a0844] transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                Créer un compte
+              </Link>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 px-8 py-3 bg-gray-100 text-gray-900 font-bold rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                ← Retourner à l'accueil
+              </Link>
             </div>
-
-            {/* CTA Button */}
-            <button
-              onClick={() => navigate("/login?role=client&next=/tickets")}
-              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs rounded-lg font-bold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-            >
-              <User className="w-4 h-4" />
-              Accéder en tant que Client
-            </button>
           </div>
         </div>
-
-        {/* Bottom CTA */}
-        <div className="text-center">
-          <p className="text-gray-600 text-sm mb-3">
-            Vous n'avez pas encore de compte ? Veuillez d'abord vous inscrire.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Link
-              to="/signup"
-              className="inline-flex items-center gap-2 px-4 py-2 text-[#08052e] hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
-            >
-              S'inscrire
-            </Link>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
-            >
-              ← Retourner à l'accueil
-            </Link>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -7,7 +7,7 @@ from app.routers import debat
 
 
 
-app = FastAPI(title="TMA-Debat API")
+app = FastAPI(title="Thinkgrid API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,7 +25,7 @@ app.include_router(debat.router, prefix="/api/debat", tags=["debat"])
 
 @app.get("/")
 def root():
-    return {"message": "TMA-Debat backend running"}
+    return {"message": "Thinkgrid backend running"}
 
 @app.get("/health")
 def health():

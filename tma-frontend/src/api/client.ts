@@ -314,4 +314,24 @@ export const userAPI = {
     const response = await api.post("/api/users/login", { email, password });
     return response.data;
   },
+
+  register: async (payload: {
+    email: string;
+    password: string;
+    nom: string;
+    prenom: string;
+  }): Promise<AuthLoginResponse> => {
+    const response = await api.post("/api/users/register", {
+      email: payload.email,
+      password: payload.password,
+      nom: payload.nom,
+      prenom: payload.prenom,
+      phone: "",
+      department: "Client",
+      role: "Client",
+      cv_texte: "",
+      competences: "",
+    });
+    return response.data;
+  },
 };

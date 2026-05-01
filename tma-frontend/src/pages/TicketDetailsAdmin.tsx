@@ -750,7 +750,7 @@ export default function TicketDetailsAdmin() {
           {/* Footer */}
           <div className="mt-12 pt-8 border-t border-gray-200 text-center">
             <p className="text-sm text-gray-500">
-               TMA System - Gestion intelligente des tickets | Tous droits réservés
+               Thinkgrid - Gestion intelligente des tickets | Tous droits réservés
             </p>
           </div>
         </div>

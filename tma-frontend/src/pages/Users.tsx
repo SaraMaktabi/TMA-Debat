@@ -1,6 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Bot,
   BarChart3,
   UsersIcon,
   AlertCircle,
@@ -17,6 +16,10 @@ import {
   Mail,
   Phone,
   X,
+  Bot,
+  CheckCircle,
+  Clock,
+  Calendar,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { userAPI, type UserDto } from "../api/client";
@@ -113,6 +116,10 @@ export default function Users() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUserForm, setEditUserForm] = useState<CreateUserForm>(defaultCreateUserForm);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showTechnicianModal, setShowTechnicianModal] = useState(false);
+  const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
+  const [technicianTickets, setTechnicianTickets] = useState<any[]>([]);
+  const [isLoadingTechnicianTickets, setIsLoadingTechnicianTickets] = useState(false);
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
@@ -250,6 +257,30 @@ export default function Users() {
     }
   };
 
+  const openTechnicianModal = async (technician: User) => {
+    setSelectedTechnician(technician);
+    setTechnicianTickets([]);
+    setIsLoadingTechnicianTickets(true);
+    setShowTechnicianModal(true);
+
+    try {
+      // Fetch tickets resolved by this technician
+      // Mock data for now - replace with actual API call
+      const mockTickets = [
+        { id: 1, title: "Issue with email setup", status: "Resolved", resolvedDate: "2026-05-01", priority: "High", client: "John Doe" },
+        { id: 2, title: "Password reset request", status: "Resolved", resolvedDate: "2026-04-30", priority: "Medium", client: "Jane Smith" },
+        { id: 3, title: "Software installation", status: "Resolved", resolvedDate: "2026-04-28", priority: "Low", client: "Bob Johnson" },
+        { id: 4, title: "Network connectivity issue", status: "Resolved", resolvedDate: "2026-04-27", priority: "Critical", client: "Alice Brown" },
+        { id: 5, title: "Database backup failed", status: "Resolved", resolvedDate: "2026-04-25", priority: "High", client: "Tom Wilson" },
+      ];
+      setTechnicianTickets(mockTickets);
+    } catch {
+      setTechnicianTickets([]);
+    } finally {
+      setIsLoadingTechnicianTickets(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
@@ -322,7 +353,7 @@ export default function Users() {
               <Bot className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-lg text-gray-900">TMA System</span>
+              <span className="font-bold text-lg text-gray-900">Thinkgrid</span>
         
             </div>
           </Link>
@@ -503,7 +534,15 @@ export default function Users() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {!isLoadingUsers && filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-all duration-200">
+                    <tr 
+                      key={user.id} 
+                      className={`hover:bg-gray-50 transition-all duration-200 ${user.role === "Technician" ? "cursor-pointer" : ""}`}
+                      onClick={() => {
+                        if (user.role === "Technician") {
+                          void openTechnicianModal(user);
+                        }
+                      }}
+                    >
                       {/* User Info */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -647,7 +686,6 @@ export default function Users() {
               </button>
             </div>
           </div>
-        </div>
 
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -969,7 +1007,115 @@ export default function Users() {
             </div>
           </div>
         )}
+
+        {/* Technician Modal */}
+        {showTechnicianModal && selectedTechnician && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-scaleIn">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-[#020331] to-[#0a0844] border-b border-[#020331]/20 p-6 flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg" style={{backgroundColor: '#020331'}}>
+                  {selectedTechnician.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{selectedTechnician.name}</h2>
+                  <p className="text-white/70 text-sm">{selectedTechnician.role} • {selectedTechnician.department}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTechnicianModal(false)}
+                className="text-white/60 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-all duration-200"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+              {/* Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 border-b border-gray-200 bg-gray-50">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#020331]">{technicianTickets.length}</div>
+                  <p className="text-sm text-gray-600 mt-2">Tickets Résolus</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600">
+                    {technicianTickets.filter(t => t.priority === "Critical" || t.priority === "High").length}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">Tickets Prioritaires</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">100%</div>
+                  <p className="text-sm text-gray-600 mt-2">Taux de Résolution</p>
+                </div>
+              </div>
+
+              {/* Tickets List */}
+              <div className="p-6 space-y-4">
+                <h3 className="font-bold text-gray-900 mb-4">Historique des Tickets Résolus</h3>
+                {isLoadingTechnicianTickets ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-8 h-8 border-3 border-gray-300 border-t-[#020331] rounded-full animate-spin"></div>
+                  </div>
+                ) : technicianTickets.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                    <p>Aucun ticket résolu pour le moment</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {technicianTickets.map((ticket) => (
+                      <div key={ticket.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                              <h4 className="font-semibold text-gray-900">{ticket.title}</h4>
+                            </div>
+                            <p className="text-sm text-gray-600">Client: {ticket.client}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                                <Calendar className="w-4 h-4" />
+                                {ticket.resolvedDate}
+                              </div>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                ticket.priority === "Critical" ? "bg-red-100 text-red-800" :
+                                ticket.priority === "High" ? "bg-orange-100 text-orange-800" :
+                                ticket.priority === "Medium" ? "bg-yellow-100 text-yellow-800" :
+                                "bg-green-100 text-green-800"
+                              }`}>
+                                {ticket.priority}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-gray-200 p-6 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowTechnicianModal(false)}
+                className="px-6 py-2.5 bg-[#020331] text-white font-semibold rounded-lg hover:bg-[#0a0844] transition-all duration-200"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+        )}
       </div>
     </div>
+  </div>
   );
 }

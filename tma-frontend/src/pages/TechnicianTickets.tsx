@@ -162,7 +162,7 @@ export default function TechnicianTickets() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
           {loading ? (
             <div className="lg:col-span-2 rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-gray-500 text-sm">
               Chargement des tickets...
@@ -177,50 +177,66 @@ export default function TechnicianTickets() {
               const isCritical = ticket.priorite === "P1" || ticket.priorite === "P2";
 
               return (
-                <article key={ticket.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                <article key={ticket.id} className="ticket-card">
+                  <div className="card-header">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">{ticket.priorite} • {ticket.application || "General"}</p>
+                        <h2 className="text-lg font-bold text-[#1a1545] line-clamp-2">{ticket.titre}</h2>
+                      </div>
+                      <span className={`ticket-chip ${meta.classes}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="card-body">
+                    <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">{ticket.priorite} • {ticket.application || "General"}</p>
-                      <h2 className="text-lg font-bold text-[#1a1545] line-clamp-2">{ticket.titre}</h2>
+                      <span
+                        className={`ticket-chip ${
+                          isCritical ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {isCritical ? "Priorite critique" : "Priorite standard"}
+                      </span>
                     </div>
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${meta.classes}`}>
-                      {meta.label}
-                    </span>
                   </div>
 
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">{ticket.description || "Aucune description disponible."}</p>
+                    <p className="text-sm text-gray-600 line-clamp-3 mb-4">{ticket.description || "Aucune description disponible."}</p>
 
-                  <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
-                    {isCritical ? <AlertTriangle className="w-4 h-4 text-red-600" /> : <Clock3 className="w-4 h-4" />}
-                    {ticket.created_at ? new Date(ticket.created_at).toLocaleString("fr-FR") : "Date inconnue"}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
-                    <select
-                      disabled={updatingId === ticket.id || ticket.statut === "RESOLU"}
-                      defaultValue={ticket.statut === "RESOLU" ? "RESOLU" : "EN_ANALYSE"}
-                      onChange={(e) => handleStatusChange(ticket.id, e.target.value as "EN_ANALYSE" | "RESOLU")}
-                      className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm disabled:bg-gray-100"
-                    >
-                      <option value="EN_ANALYSE">Passer en analyse</option>
-                      <option value="RESOLU">Marquer comme résolu</option>
-                    </select>
-
-                    <button
-                      onClick={() => navigate(`/ticket/${ticket.id}`)}
-                      className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0f0745] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                    >
-                      Détails
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {ticket.statut === "RESOLU" && (
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                      <CircleCheckBig className="w-3.5 h-3.5" />
-                      Ce ticket est résolu et synchronisé.
+                    <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
+                      {isCritical ? <AlertTriangle className="w-4 h-4 text-red-600" /> : <Clock3 className="w-4 h-4" />}
+                      {ticket.created_at ? new Date(ticket.created_at).toLocaleString("fr-FR") : "Date inconnue"}
                     </div>
-                  )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                      <select
+                        disabled={updatingId === ticket.id || ticket.statut === "RESOLU"}
+                        defaultValue={ticket.statut === "RESOLU" ? "RESOLU" : "EN_ANALYSE"}
+                        onChange={(e) => handleStatusChange(ticket.id, e.target.value as "EN_ANALYSE" | "RESOLU")}
+                        className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm disabled:bg-gray-100"
+                      >
+                        <option value="EN_ANALYSE">Passer en analyse</option>
+                        <option value="RESOLU">Marquer comme résolu</option>
+                      </select>
+
+                      <button
+                        onClick={() => navigate(`/ticket/${ticket.id}`)}
+                        className="card-cta inline-flex items-center justify-center gap-1 bg-[var(--edu-primary)] px-4 py-2.5 text-sm text-white hover:brightness-95"
+                      >
+                        Détails
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {ticket.statut === "RESOLU" && (
+                      <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                        <CircleCheckBig className="w-3.5 h-3.5" />
+                        Ce ticket est résolu et synchronisé.
+                      </div>
+                    )}
+                  </div>
                 </article>
               );
             })

@@ -124,12 +124,12 @@ export default function TicketDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#eef6ff_0%,#f7f9fc_40%,#eef2ef_100%)] flex items-center justify-center px-4">
-        <div className="rounded-[2rem] border border-white/70 bg-white/80 backdrop-blur px-8 py-10 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.45)] text-center max-w-sm w-full">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#08154a_0%,#0a3a2f_100%)] text-white shadow-lg shadow-[#08154a]/20">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)] flex items-center justify-center px-4">
+        <div className="platform-card px-8 py-10 text-center max-w-sm w-full">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--edu-primary)] text-white shadow-lg shadow-[#020331]/20">
             <Loader className="w-8 h-8 animate-spin" />
           </div>
-          <p className="text-lg font-bold text-[#11204f] mb-2">Chargement du ticket</p>
+          <p className="text-lg font-bold text-[#122955] mb-2">Chargement du ticket</p>
           <p className="text-sm text-gray-600">{!ticket?.score ? "L'analyse IA est en cours..." : "Préparation de la vue détaillée."}</p>
         </div>
       </div>
@@ -138,12 +138,12 @@ export default function TicketDetails() {
 
   if (error || !ticket) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fdf2f2_0%,#fff7f7_35%,#f5f7fb_100%)]">
-        <nav className="border-b border-white/70 bg-white/70 backdrop-blur sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-4">
+      <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
+        <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
             <button
               onClick={() => navigate(backPath)}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-gray-200 text-blue-900 hover:bg-gray-50 font-medium shadow-sm"
+              className="edu-cta inline-flex items-center gap-2"
             >
               <ArrowLeft size={20} />
               Retour aux tickets
@@ -151,11 +151,11 @@ export default function TicketDetails() {
           </div>
         </nav>
         <div className="flex items-center justify-center pt-20 px-4">
-          <div className="rounded-[2rem] border border-red-100 bg-white/85 backdrop-blur px-8 py-10 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.35)] text-center max-w-sm w-full">
+          <div className="platform-card px-8 py-10 text-center max-w-sm w-full">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm">
               <AlertCircle className="w-8 h-8" />
             </div>
-            <p className="text-lg font-bold text-[#11204f] mb-2">Impossible de charger le ticket</p>
+            <p className="text-lg font-bold text-[#122955] mb-2">Impossible de charger le ticket</p>
             <p className="text-sm text-gray-600">{error || "Ticket introuvable"}</p>
           </div>
         </div>
@@ -170,12 +170,12 @@ export default function TicketDetails() {
   const StatusIcon = statusInfo.Icon;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0%,#f7f9fc_40%,#eef2ef_100%)]">
-      <nav className="border-b border-white/70 bg-white/70 backdrop-blur sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
+      <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
           <button
             onClick={() => navigate(backPath)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-gray-200 text-blue-900 hover:bg-gray-50 font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+            className="edu-cta inline-flex items-center gap-2"
           >
             <ArrowLeft size={20} />
             Retour aux tickets
@@ -183,52 +183,35 @@ export default function TicketDetails() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <div className="rounded-[2rem] bg-[linear-gradient(135deg,#08154a_0%,#102b78_58%,#3b2a79_100%)] text-white p-6 md:p-8 relative overflow-hidden shadow-[0_20px_60px_-28px_rgba(8,21,74,0.95)] ring-1 ring-white/10 mb-4">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(167,139,250,0.16),transparent_34%)]"></div>
-            <div className="relative z-10 flex items-start justify-between gap-6 flex-wrap">
-              <div className="max-w-4xl">
-                <h1 className="text-4xl md:text-5xl font-black leading-tight">{ticket.titre}</h1>
-                <p className="text-slate-100/90 mt-3">Analyse, priorisation et contexte complet du ticket dans une interface plus lisible et plus premium.</p>
-                <p className="text-slate-200 mt-3 text-sm">ID: <span className="font-mono text-white">{ticket.id}</span></p>
-              </div>
-              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium ${statusInfo.color} bg-white/10 border border-white/15`}>
-                <StatusIcon className="w-4 h-4" />
-                {statusInfo.label}
-              </span>
-            </div>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="platform-card p-4 ring-1 ring-white/70">
+            <p className="text-xs text-gray-500 mb-1">Priorité</p>
+            <p className={`font-bold text-lg ${priorityInfo.color} inline-flex items-center gap-2`}>
+              <PriorityIcon className="w-5 h-5" />
+              {priorityInfo.label}
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
-              <p className="text-xs text-gray-500 mb-1">Priorité</p>
-              <p className={`font-bold text-lg ${priorityInfo.color} inline-flex items-center gap-2`}>
-                <PriorityIcon className="w-5 h-5" />
-                {priorityInfo.label}
-              </p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
-              <p className="text-xs text-gray-500 mb-1">Environnement</p>
-              <p className="font-bold text-lg text-blue-900">{ticket.environnement}</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
-              <p className="text-xs text-gray-500 mb-1">Application</p>
-              <p className="font-bold text-lg text-blue-900">{ticket.application}</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm ring-1 ring-white/70">
-              <p className="text-xs text-gray-500 mb-1">Créé le</p>
-              <p className="font-bold text-sm text-blue-900">
-                {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
-              </p>
-            </div>
+          <div className="platform-card p-4 ring-1 ring-white/70">
+            <p className="text-xs text-gray-500 mb-1">Environnement</p>
+            <p className="font-bold text-lg text-[var(--edu-primary)]">{ticket.environnement}</p>
+          </div>
+          <div className="platform-card p-4 ring-1 ring-white/70">
+            <p className="text-xs text-gray-500 mb-1">Application</p>
+            <p className="font-bold text-lg text-[var(--edu-primary)]">{ticket.application}</p>
+          </div>
+          <div className="platform-card p-4 ring-1 ring-white/70">
+            <p className="text-xs text-gray-500 mb-1">Créé le</p>
+            <p className="font-bold text-sm text-[var(--edu-primary)]">
+              {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") : "N/A"}
+            </p>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
-              <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
+            <div className="platform-card p-6 ring-1 ring-white/70">
+              <h2 className="text-xl font-bold text-[#122955] mb-4 flex items-center gap-2">
                 <MessageCircle size={20} />
                 Description
               </h2>
@@ -236,8 +219,8 @@ export default function TicketDetails() {
             </div>
 
             {ticket.score !== null && ticket.score !== undefined ? (
-              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
-                <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
+              <div className="platform-card p-6 ring-1 ring-white/70">
+                <h2 className="text-xl font-bold text-[#122955] mb-4 flex items-center gap-2">
                   <Zap size={20} className="text-yellow-600" />
                   Analyse IA & Score
                 </h2>
@@ -276,20 +259,20 @@ export default function TicketDetails() {
                 )}
               </div>
             ) : (
-              <div className="bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] border border-blue-200 rounded-[1.5rem] p-6 shadow-sm">
+              <div className="rounded-[1.5rem] p-6 shadow-sm border border-[#d8e4f8] bg-[linear-gradient(135deg,#f7faff_0%,#ffffff_100%)]">
                 <div className="flex items-center gap-3">
-                  <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                  <Loader className="w-5 h-5 text-[var(--edu-primary)] animate-spin" />
                   <div>
-                      <p className="font-semibold text-blue-900">Analyse en cours...</p>
-                    <p className="text-sm text-blue-700 mt-1">Le scorer et l'analyseur traitent ton ticket. Cela prendra quelques secondes.</p>
+                      <p className="font-semibold text-[var(--edu-primary)]">Analyse en cours...</p>
+                    <p className="text-sm text-[#314b7d] mt-1">Le scorer et l'analyseur traitent ton ticket. Cela prendra quelques secondes.</p>
                   </div>
                 </div>
               </div>
             )}
 
             {ticket.analyse_nlp && (
-              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70">
-                <h2 className="text-xl font-bold text-[#11204f] mb-4 flex items-center gap-2">
+              <div className="platform-card p-6 ring-1 ring-white/70">
+                <h2 className="text-xl font-bold text-[#122955] mb-4 flex items-center gap-2">
                   <TrendingUp size={20} className="text-purple-600" />
                   Analyse Détaillée
                 </h2>
@@ -362,12 +345,12 @@ export default function TicketDetails() {
           </div>
 
           <div className="space-y-6">
-              <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.45)] ring-1 ring-white/70 sticky top-24">
-              <h3 className="font-bold text-[#11204f] mb-4">Informations</h3>
+              <div className="platform-card p-6 ring-1 ring-white/70 sticky top-24">
+              <h3 className="font-bold text-[#122955] mb-4">Informations</h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-gray-500">Score</p>
-                  <p className="text-xl font-bold text-blue-900">
+                  <p className="text-xl font-bold text-[var(--edu-primary)]">
                     {ticket.score ? `${ticket.score}/100` : "En cours..."}
                   </p>
                 </div>
@@ -386,7 +369,7 @@ export default function TicketDetails() {
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#f0f4ff] px-3 py-2 text-xs font-medium text-[var(--edu-primary)]">
                   <Clock size={14} />
                   Synchronisation automatique active
                 </div>
@@ -394,7 +377,7 @@ export default function TicketDetails() {
 
               <button
                 onClick={() => window.location.reload()}
-                className="w-full mt-4 px-4 py-2 bg-[linear-gradient(135deg,#08154a_0%,#123b8f_100%)] text-white rounded-full hover:opacity-95 font-medium transition flex items-center justify-center gap-2 shadow-[0_12px_25px_-16px_rgba(8,21,74,0.75)]"
+                className="w-full mt-4 edu-cta justify-center flex items-center gap-2"
               >
                 <Clock size={16} />
                 Actualiser

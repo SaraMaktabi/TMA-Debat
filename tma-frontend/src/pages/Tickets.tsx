@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ticketAPI } from "../api/client";
-import { Plus, Search, AlertCircle, Clock, User, Mail, FileText, Zap, MessageCircle } from "lucide-react";
+import { Plus, Search, AlertCircle, Clock, User, FileText, Zap, MessageCircle } from "lucide-react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../utils/auth";
@@ -9,20 +9,24 @@ export default function Tickets() {
   const navigate = useNavigate();
   const session = getSession();
   const isAdminUser = session?.role === "Admin";
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"create" | "track">("track");
 
-  // Form states - adaptés au backend
-  // const [companyName, setCompanyName] = useState("");
-  // const [email, setEmail] = useState("");
+  // Data
+  const [tickets, setTickets] = useState<any[]>([]);
+
+  // UI state
+  const [activeTab, setActiveTab] = useState<"create" | "track">("track");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("");
+
+  // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [priorite, setPriorite] = useState("P3"); // P1, P2, P3, P4
-  const [environnement, setEnvironnement] = useState("PROD"); // PROD, RECETTE, DEV
+  const [priorite, setPriorite] = useState("P3");
+  const [environnement, setEnvironnement] = useState("PROD");
   const [application, setApplication] = useState("General");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Options pour les selects
   const prioriteOptions = [
     { value: "P1", label: "Critique - Intervention immédiate", color: "text-red-600" },
     { value: "P2", label: "Élevée - Priorité haute", color: "text-orange-600" },
@@ -50,18 +54,11 @@ export default function Tickets() {
 
   const fetchTickets = async () => {
     try {
-      const data = await ticketAPI.list(
-        isAdminUser ? undefined : { createdByUserId: session?.id }
-      );
-      setTickets(data);
+      const data = await ticketAPI.list(isAdminUser ? undefined : { createdByUserId: session?.id });
+      setTickets(data || []);
     } catch (error) {
       console.error("Erreur lors du chargement des tickets:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erreur!",
-        text: "Impossible de charger les tickets",
-        confirmButtonColor: "#001f3f",
-      });
+      Swal.fire({ icon: "error", title: "Erreur!", text: "Impossible de charger les tickets", confirmButtonColor: "#001f3f" });
     }
   };
 
@@ -70,23 +67,15 @@ export default function Tickets() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchTickets();
-    }, 10000);
-
-    const handleFocus = () => {
-      fetchTickets();
-    };
-
+    const interval = setInterval(() => fetchTickets(), 10000);
+    const handleFocus = () => fetchTickets();
     window.addEventListener("focus", handleFocus);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
-  // Fonction pour mapper la priorité à un niveau d'urgence pour l'affichage
   const getUrgencyFromPriorite = (priorite: string): string => {
     switch (priorite) {
       case "P1": return "high";
@@ -97,7 +86,6 @@ export default function Tickets() {
     }
   };
 
-  // Fonction pour obtenir le libellé du statut
   const getStatusLabel = (statut: string) => {
     switch (statut) {
       case "OUVERT":
@@ -109,40 +97,43 @@ export default function Tickets() {
     }
   };
 
+  const getPriorityClass = (urgency: string) => {
+    if (urgency === "high") return "bg-red-100 text-red-700";
+    if (urgency === "medium") return "bg-amber-100 text-amber-700";
+    return "bg-emerald-100 text-emerald-700";
+  };
+
+  const getPriorityLabel = (urgency: string) => {
+    if (urgency === "high") return "Priorité haute";
+    if (urgency === "medium") return "Priorité normale";
+    return "Priorité faible";
+  };
+
   const createTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     if (!title.trim() || !description.trim()) {
-      Swal.fire({
-        icon: "warning",
-        title: "Validation",
-        text: "Veuillez remplir tous les champs obligatoires",
-        confirmButtonColor: "#001f3f",
-      });
+      Swal.fire({ icon: "warning", title: "Validation", text: "Veuillez remplir tous les champs obligatoires", confirmButtonColor: "#001f3f" });
       setIsSubmitting(false);
       return;
     }
 
-    // Construction des données au format backend
     const ticketData = {
       titre: title,
-      description: description,
-      priorite: priorite,
-      environnement: environnement,
-      application: application,
+      description,
+      priorite,
+      environnement,
+      application,
       created_by_user_id: session?.id,
     };
 
-    console.log("Envoi au backend:", ticketData);
-
     try {
       const response = await ticketAPI.create(ticketData);
-      
-      // Show success message with SweetAlert
+
       Swal.fire({
         icon: "success",
-        title: " Ticket créé avec succès!",
+        title: "Ticket créé avec succès!",
         html: `
           <div style="text-align: left;">
             <p><strong>ID:</strong> ${response.id}</p>
@@ -158,7 +149,6 @@ export default function Tickets() {
         confirmButtonText: "OK",
       });
 
-      // Reset form
       setTitle("");
       setDescription("");
       setPriorite("P3");
@@ -166,408 +156,347 @@ export default function Tickets() {
       setApplication("General");
       setActiveTab("track");
 
-      // Recharger les tickets après un délai (pour laisser le temps au scanner de traiter)
-      setTimeout(() => {
-        fetchTickets();
-      }, 2000);
+      setTimeout(() => fetchTickets(), 2000);
     } catch (error: any) {
       console.error("Erreur:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erreur!",
-        text: error.response?.data?.detail || "Une erreur s'est produite lors de la création du ticket.",
-        confirmButtonColor: "#001f3f",
-      });
+      Swal.fire({ icon: "error", title: "Erreur!", text: error.response?.data?.detail || "Une erreur s'est produite lors de la création du ticket.", confirmButtonColor: "#001f3f" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen w-full bg-[#f6f6f7]">
-      <div className="overflow-auto">
-      {/* ============ HERO SECTION ============ */}
-      <div className="py-8 lg:py-12 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-sm font-medium text-gray-500 mb-4 flex items-center justify-center gap-2">
-            <User size={16} />
-            Portail Support
-          </p>
-          <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-            Bienvenue dans le portail de support
-          </h1>
-          <p className="text-lg text-gray-600 mb-12">
-            Créez des tickets de support ou suivez le statut de vos demandes
-          </p>
-          
-          {/* TAB BUTTONS */}
-          <div className="flex gap-3 justify-center bg-gray-200 rounded-full p-1.5 w-fit mx-auto shadow-sm">
-            <button
-              onClick={() => setActiveTab("create")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-medium transition-all ${
-                activeTab === "create"
-                  ? "bg-white text-gray-900 shadow-md"
-                  : "text-gray-700 hover:text-gray-900"
-              }`}
-            >
-              <Plus size={18} />
-              Créer un nouveau ticket
-            </button>
-            <button
-              onClick={() => setActiveTab("track")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full font-medium transition-all ${
-                activeTab === "track"
-                  ? "bg-white text-gray-900 shadow-md"
-                  : "text-gray-700 hover:text-gray-900"
-              }`}
-            >
-              <Search size={18} />
-              Suivre les tickets
-            </button>
-          </div>
-        </div>
-      </div>
+  // Filters
+  const filteredTickets = tickets.filter((ticket) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesTerm = !term || (
+      (ticket.id && String(ticket.id).toLowerCase().includes(term)) ||
+      (ticket.titre && String(ticket.titre).toLowerCase().includes(term)) ||
+      (ticket.description && String(ticket.description).toLowerCase().includes(term))
+    );
 
-      {/* ============ FORM SECTION ============ */}
-      {activeTab === "create" && (
-        <div className="py-12 px-4">
-          <div className="max-w-2xl mx-auto">
-            
-            {/* Form Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-lg">
-              
-              {/* Form Header */}
-              <div className="text-center mb-10">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <MessageCircle size={32} className="text-gray-600" />
+    const matchesStatus = !statusFilter || (ticket.statut && ticket.statut === statusFilter);
+    const matchesPriority = !priorityFilter || (ticket.priorite && ticket.priorite === priorityFilter);
+
+    return matchesTerm && matchesStatus && matchesPriority;
+  });
+
+  const totalTickets = tickets.length;
+  const openTickets = tickets.filter((t) => ["OUVERT", "NOUVEAU", "EN_ANALYSE"].includes(String(t.statut))).length;
+  const resolvedTickets = tickets.filter((t) => String(t.statut) === "RESOLU").length;
+  const displayName = session?.name?.split(" ")[0] || "Client";
+
+  return (
+    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
+      <div className="overflow-auto pb-10">
+        <div className="max-w-7xl mx-auto px-4 pt-20 lg:pt-24">
+          <section className="mb-6">
+            <p className="text-sm text-[#35507f] mb-2 inline-flex items-center gap-2 font-semibold">
+              <User size={15} /> Bonjour {displayName}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-3 py-1.5 rounded-full bg-[#f2f6ff] text-[#1f3b70] border border-[#dbe5f5] font-semibold">Total: {totalTickets}</span>
+              <span className="px-3 py-1.5 rounded-full bg-[#f2f6ff] text-[#1f3b70] border border-[#dbe5f5] font-semibold">En cours: {openTickets}</span>
+              <span className="px-3 py-1.5 rounded-full bg-[#f2f6ff] text-[#1f3b70] border border-[#dbe5f5] font-semibold">Résolus: {resolvedTickets}</span>
+            </div>
+          </section>
+
+          <div className="mb-6 flex justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4f8] bg-white p-1.5 shadow-sm">
+              <button
+                onClick={() => setActiveTab("create")}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition ${
+                  activeTab === "create"
+                    ? "bg-[var(--edu-primary)] text-white shadow"
+                    : "text-[#22325a] hover:bg-[#f2f7ff]"
+                }`}
+              >
+                <Plus size={16} /> Nouveau ticket
+              </button>
+              <button
+                onClick={() => setActiveTab("track")}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition ${
+                  activeTab === "track"
+                    ? "bg-[var(--edu-primary)] text-white shadow"
+                    : "text-[#22325a] hover:bg-[#f2f7ff]"
+                }`}
+              >
+                <Search size={16} /> Suivre mes tickets
+              </button>
+            </div>
+          </div>
+
+          {activeTab === "create" && (
+            <section className="max-w-3xl mx-auto ticket-card">
+              <div className="card-header">
+                <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#25457a]">
+                  <MessageCircle size={16} /> Création d'un ticket
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-3">Créer un ticket de support</h2>
-                <p className="text-gray-600">
-                  Décrivez votre problème et notre système IA analysera automatiquement votre demande
-                </p>
+                <h2 className="text-2xl md:text-3xl font-black text-[#122955] mt-2">Décrire un incident ou une demande</h2>
+                <p className="text-sm text-gray-600 mt-1">Plus votre description est précise, plus les recommandations IA seront pertinentes.</p>
               </div>
 
-              <form onSubmit={createTicket} className="space-y-6">
-                
-                {/* Company Name & Email */}
-                <div className="grid lg:grid-cols-2 gap-6">
-                  {/* <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <User size={16} className="text-gray-500" />
-                      Nom de l'entreprise *
+              <div className="card-body">
+                <form onSubmit={createTicket} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2 inline-flex items-center gap-2">
+                      <FileText size={15} className="text-[#315da0]" /> Titre du problème *
                     </label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900 placeholder-gray-400"
-                      placeholder="Votre entreprise"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl focus:ring-2 focus:ring-[#9ec5ff] focus:border-[#5b8ddd] outline-none transition"
+                      placeholder="Ex: L'API retourne des erreurs 500"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
                       required
                     />
-                  </div> */}
-                  {/* <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <Mail size={16} className="text-gray-500" />
-                      Adresse e-mail *
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900 placeholder-gray-400"
-                      placeholder="vous@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div> */}
-                </div>
+                  </div>
 
-                {/* Problem Title */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <FileText size={16} className="text-gray-500" />
-                    Titre du problème *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900 placeholder-gray-400"
-                    placeholder="ex: L'API retourne des erreurs 500"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </div>
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2 inline-flex items-center gap-2">
+                        <AlertCircle size={15} className="text-[#315da0]" /> Priorité *
+                      </label>
+                      <select
+                        className="w-full px-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl focus:ring-2 focus:ring-[#9ec5ff] outline-none"
+                        value={priorite}
+                        onChange={(e) => setPriorite(e.target.value)}
+                        required
+                      >
+                        {prioriteOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">Environnement *</label>
+                      <select
+                        className="w-full px-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl focus:ring-2 focus:ring-[#9ec5ff] outline-none"
+                        value={environnement}
+                        onChange={(e) => setEnvironnement(e.target.value)}
+                        required
+                      >
+                        {environnementOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-                {/* Priorité & Environnement */}
-                <div className="grid lg:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <AlertCircle size={16} className="text-gray-500" />
-                      Priorité *
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Application / Service concerné *</label>
                     <select
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900"
-                      value={priorite}
-                      onChange={(e) => setPriorite(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl focus:ring-2 focus:ring-[#9ec5ff] outline-none"
+                      value={application}
+                      onChange={(e) => setApplication(e.target.value)}
                       required
                     >
-                      {prioriteOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      {applicationOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      Environnement *
-                    </label>
-                    <select
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900"
-                      value={environnement}
-                      onChange={(e) => setEnvironnement(e.target.value)}
-                      required
-                    >
-                      {environnementOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
-                {/* Application / Service concerné */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Application / Service concerné *
-                  </label>
-                  <select
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900"
-                    value={application}
-                    onChange={(e) => setApplication(e.target.value)}
-                    required
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Description détaillée *</label>
+                    <textarea
+                      className="w-full px-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl focus:ring-2 focus:ring-[#9ec5ff] outline-none"
+                      rows={5}
+                      placeholder="Décrivez votre problème..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="rounded-xl bg-[#f0f7ff] border border-[#d6e9ff] p-4 flex gap-3">
+                    <Zap size={19} className="text-[#0f4b8a] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-[#122955]">Analyse IA activée</p>
+                      <p className="text-sm text-gray-600 mt-1">Le système évalue automatiquement la criticité et propose des recommandations de traitement.</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="card-cta w-full bg-[var(--edu-primary)] hover:brightness-95 disabled:bg-gray-400 text-white py-3.5 px-4 rounded-xl font-semibold inline-flex items-center justify-center gap-2"
                   >
-                    {applicationOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
+                    <Zap size={17} /> {isSubmitting ? "Création en cours..." : "Créer le ticket"}
+                  </button>
+                </form>
+              </div>
+            </section>
+          )}
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Description détaillée *
-                  </label>
-                  <textarea
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-900 focus:bg-white focus:border-blue-900 outline-none transition text-gray-900 placeholder-gray-400"
-                    rows={5}
-                    placeholder="Décrivez votre problème en détail..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                  />
-                </div>
+          {activeTab === "track" && (
+            <section className="space-y-5">
+              <div className="ticket-card">
+                <div className="card-body">
+                  <div className="grid grid-cols-1 md:grid-cols-[1.1fr_auto_auto_auto] gap-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Rechercher par ID, titre ou description..."
+                        className="w-full pl-10 pr-4 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl"
+                      />
+                    </div>
 
-                {/* AI Support Box */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-                  <Zap size={20} className="text-blue-900 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-gray-900">Support IA activé</p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Notre système intelligent analyse automatiquement votre problème et suggère la meilleure solution. 
-                      Dans de nombreux cas, nous pouvons résoudre votre problème immédiatement !
-                    </p>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="px-3 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl text-sm"
+                    >
+                      <option value="">Tous statuts</option>
+                      <option value="OUVERT">Ouvert</option>
+                      <option value="EN_ANALYSE">En analyse</option>
+                      <option value="AFFECTE">Affecté</option>
+                      <option value="RESOLU">Résolu</option>
+                    </select>
+
+                    <select
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value)}
+                      className="px-3 py-3 bg-[#f7faff] border border-[#d8e4f8] rounded-xl text-sm"
+                    >
+                      <option value="">Toutes priorités</option>
+                      <option value="P1">P1 - Critique</option>
+                      <option value="P2">P2 - Élevée</option>
+                      <option value="P3">P3 - Normale</option>
+                      <option value="P4">P4 - Faible</option>
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        setActiveTab("create");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="bg-[var(--edu-primary)] text-white rounded-xl px-4 py-3 text-sm font-semibold hover:brightness-95"
+                    >
+                      Créer
+                    </button>
                   </div>
                 </div>
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-blue-900 hover:bg-blue-950 disabled:bg-gray-400 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-                >
-                  <Zap size={18} />
-                  {isSubmitting ? "Création en cours..." : "Créer le ticket avec analyse IA"}
-                </button>
-
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============ LIST SECTION ============ */}
-      {activeTab === "track" && (
-        <div className="py-12 px-4">
-          <div className="max-w-6xl mx-auto">
-            
-            {/* Header Section */}
-            <div className="text-center mb-12">
-              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search size={32} className="text-gray-600" />
               </div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-3">Vos tickets de support</h2>
-              <p className="text-gray-600 text-lg">Suivez l'avancement de vos demandes</p>
-            </div>
 
-            {/* Search Bar */}
-            <div className="mb-12 flex justify-center">
-              <div className="relative w-full max-w-2xl">
-                <Search className="absolute left-4 top-4 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="Entrez l'ID du ticket ou l'email..."
-                  className="w-full pl-12 pr-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Tickets List */}
-            {tickets.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center shadow-sm">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Clock size={32} className="text-gray-400" />
+              {tickets.length === 0 ? (
+                <div className="ticket-card">
+                  <div className="card-body text-center py-12">
+                    <div className="w-14 h-14 bg-[#eef4ff] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock size={28} className="text-[#4f6da8]" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#142b57]">Aucun ticket pour le moment</h3>
+                    <p className="text-gray-600 mt-2">Créez votre premier ticket pour démarrer le suivi.</p>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">Aucun ticket</h3>
-                <p className="text-gray-600 mt-2">Vous n'avez pas encore créé de ticket de support.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {tickets.map((ticket, index) => {
-                  const ticketId = `TK-${String(index + 1).padStart(3, '0')}`;
-                  const urgency = getUrgencyFromPriorite(ticket.priorite);
-                  const status = getStatusLabel(ticket.statut);
-                  const scoreValue = ticket.score ?? ticket.score_difficulte;
-                  
-                  return (
-                    <div
-                      key={ticket.id}
-                      className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all"
+              ) : filteredTickets.length === 0 ? (
+                <div className="ticket-card">
+                  <div className="card-body text-center py-10">
+                    <h3 className="text-xl font-bold text-[#142b57]">Aucun résultat</h3>
+                    <p className="text-gray-600 mt-2">Aucun ticket ne correspond aux filtres actuels.</p>
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setStatusFilter("");
+                        setPriorityFilter("");
+                      }}
+                      className="mt-4 px-4 py-2 bg-[#eef4ff] text-[#244a86] rounded-lg text-sm font-semibold"
                     >
-                      {/* Card Header */}
-                      <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <span className="text-sm font-mono font-bold bg-gray-100 px-3 py-1 rounded text-gray-700">
-                              {ticketId}
-                            </span>
+                      Effacer les filtres
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+                  {filteredTickets.map((ticket, index) => {
+                    const ticketId = `TK-${String(index + 1).padStart(3, "0")}`;
+                    const urgency = getUrgencyFromPriorite(ticket.priorite);
+                    const status = getStatusLabel(ticket.statut);
+                    const scoreValue = ticket.score ?? ticket.score_difficulte;
+
+                    return (
+                      <article key={ticket.id} className="ticket-card">
+                        <div className="card-header">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="ticket-badge">{ticketId}</span>
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${status.color}`}>
-                                ● {status.label}
-                              </span>
-                              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                                urgency === "high" ? "bg-red-100 text-red-700" : 
-                                urgency === "medium" ? "bg-yellow-100 text-yellow-700" : 
-                                "bg-green-100 text-green-700"
-                              }`}>
-                                {urgency === "high" ? "Haute Priorité" : urgency === "medium" ? "Priorité Normale" : "Faible Priorité"}
-                              </span>
+                              <span className={`ticket-chip ${status.color}`}>{status.label}</span>
+                              <span className={`ticket-chip ${getPriorityClass(urgency)}`}>{getPriorityLabel(urgency)}</span>
                             </div>
                           </div>
-                          {scoreValue !== null && scoreValue !== undefined && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-500">Score:</span>
-                              <span className={`font-bold text-sm ${
-                                scoreValue >= 80 ? 'text-red-600' :
-                                scoreValue >= 60 ? 'text-orange-600' :
-                                scoreValue >= 40 ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`}>
-                                {scoreValue}/100
+                        </div>
+
+                        <div className="card-body">
+                          <h3 className="text-lg font-bold text-[#122955] line-clamp-2">{ticket.titre}</h3>
+                          <p className="text-gray-600 text-sm leading-relaxed mt-2 line-clamp-3">{ticket.description}</p>
+
+                          <div className="mt-4 pt-4 border-t border-[#e4ecfb] space-y-2 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-gray-500">Créé le</span>
+                              <span className="text-[#1d3970] font-medium text-right">
+                                {ticket.created_at
+                                  ? new Date(ticket.created_at).toLocaleDateString("fr-FR") +
+                                    " à " +
+                                    new Date(ticket.created_at).toLocaleTimeString("fr-FR", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "N/A"}
                               </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-gray-500">Application</span>
+                              <span className="text-[#1d3970] font-medium">{ticket.application || application}</span>
+                            </div>
+                            {scoreValue !== null && scoreValue !== undefined && (
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-gray-500">Score IA</span>
+                                <span className="text-[#1d3970] font-bold">{scoreValue}/100</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {ticket.analyse_nlp?.technologies?.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs text-gray-500 mb-2">Technologies détectées</p>
+                              <div className="flex flex-wrap gap-2">
+                                {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
+                                  <span key={i} className="ticket-chip bg-[#edf3ff] text-[#335a98]">{tech}</span>
+                                ))}
+                              </div>
                             </div>
                           )}
-                        </div>
-                      </div>
 
-                      {/* Card Content */}
-                      <div className="px-6 py-6 space-y-4 text-left">
-                        {/* Title */}
-                        <h3 className="text-xl font-bold text-gray-900 text-left">{ticket.titre}</h3>
-                        
-                        {/* Description */}
-                        <p className="text-gray-600 text-sm leading-relaxed text-left">{ticket.description}</p>
-
-                        {/* Meta Information */}
-                        <div className="flex flex-wrap items-center gap-8 py-4 border-t border-b border-gray-200 text-sm text-left">
-                          <div className="flex items-center gap-2">
-                            <Clock size={16} className="text-gray-400" />
-                            <span className="text-gray-500">Créé le:</span>
-                            <span className="text-gray-900 font-medium">
-                              {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString("fr-FR") + " à " + new Date(ticket.created_at).toLocaleTimeString("fr-FR", { 
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              }) : "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <User size={16} className="text-gray-400" />
-                            <span className="text-gray-500">Assigné à:</span>
-                            {/* <span className="text-gray-900 font-medium">{companyName || "En attente"}</span> */}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Mail size={16} className="text-gray-400" />
-                            <span className="text-gray-500">Email:</span>
-                            {/* <span className="text-blue-600 font-medium">{email}</span> */}
-                          </div>
-                        </div>
-
-                        {/* Technologies détectées par l'IA */}
-                        {ticket.analyse_nlp && ticket.analyse_nlp.technologies && ticket.analyse_nlp.technologies.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 mb-2"> Technologies détectées par l'IA:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {ticket.analyse_nlp.technologies.map((tech: string, i: number) => (
-                                <span key={i} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                                  {tech}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* AI Solution Suggestion */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 text-left">
-                          <Zap size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                          <div className="text-left">
-                            <p className="font-semibold text-gray-900 text-sm"> Suggestion IA</p>
-                            <p className="text-gray-600 text-xs mt-1">
-                              {ticket.priorite === "P1" 
-                                ? " Problème critique détecté. Recommande une investigation immédiate des logs et des ressources système."
+                          <div className="mt-4 rounded-xl bg-[#f0f7ff] border border-[#d6e9ff] p-3 flex gap-2">
+                            <Zap size={17} className="text-[#0f4b8a] flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-gray-700 leading-relaxed">
+                              {ticket.priorite === "P1"
+                                ? "Problème critique détecté: investigation immédiate recommandée."
                                 : ticket.priorite === "P2"
-                                ? " Priorité élevée. Vérification des configurations et des changements récents recommandée."
-                                : ticket.priorite === "P3"
-                                ? " Traitement standard. Analyse automatique en cours."
-                                : " Priorité faible. Planification de maintenance recommandée."}
+                                  ? "Priorité élevée: vérifiez les changements récents et la configuration."
+                                  : ticket.priorite === "P3"
+                                    ? "Traitement standard: analyse automatique en cours."
+                                    : "Priorité faible: planification de maintenance recommandée."}
                             </p>
                           </div>
-                        </div>
 
-                        {/* Application Badge */}
-                        <div className="pt-2 text-left">
-                          <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">
-                            {ticket.application || application}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-semibold ml-2">
-                            {ticket.environnement || environnement}
-                          </span>
-                        </div>
-
-                        {/* View Details Button */}
-                        <div className="pt-4">
                           <button
                             onClick={() => navigate(`/ticket/${ticket.id}`)}
-                            className="w-full bg-blue-900 hover:bg-blue-950 text-white py-2 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                            className="card-cta w-full bg-[var(--edu-primary)] hover:brightness-95 text-white py-2.5 px-4 rounded-xl font-semibold transition inline-flex items-center justify-center gap-2 mt-4"
                           >
-                            <Search size={16} />
-                            Voir les détails et résultats IA
+                            <Search size={15} /> Voir les détails
                           </button>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
         </div>
-      )}
       </div>
     </div>
   );

@@ -1,12 +1,13 @@
 ﻿@import "tailwindcss";
 
 :root {
-  --edu-text: #1f2140;
-  --edu-muted: #6f7399;
-  --edu-card: #ffffff;
-  --edu-border: #e8e8ef;
-  --edu-soft: #f6f7fb;
-  --edu-primary: #0e0b3e;
+  --edu-text: #0f1724; /* dark slate */
+  --edu-muted: #6b7280; /* gray-500 */
+  --edu-card: #ffffff; 
+  --edu-border: #e6eef8; /* soft blue border */
+  --edu-soft: #f6f9ff; /* subtle blue background */
+  --edu-primary: #020331; /* primary deep blue (requested) */
+  --edu-accent: #06b6d4; /* cyan accent */
 }
 
 * {
@@ -104,3 +105,205 @@ body {
 .platform-btn-soft:hover {
   background: #f8f9fd;
 }
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-in-out;
+}
+
+/* Delay animations */
+.delay-2000 {
+  animation-delay: 2s;
+}
+
+/* Add Tailwind animation utilities */
+@keyframes pulse-smooth {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-smooth 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.delay-2000 {
+  animation-delay: 2s;
+}
+
+/* Slide animations for scroll effects */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Morph effect animations */
+@keyframes slideInUpMorph {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.8);
+    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(50px) scale(0.9);
+    clip-path: polygon(5% 95%, 95% 95%, 100% 20%, 0 20%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+.animate-slideInUpMorph {
+  animation: slideInUpMorph 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Ticket card style */
+.ticket-card {
+  background: var(--edu-card);
+  border: 1px solid var(--edu-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(2, 3, 49, 0.08);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.ticket-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 16px 34px rgba(2, 3, 49, 0.16);
+  border-color: rgba(2, 3, 49, 0.2);
+}
+.ticket-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--edu-primary), var(--edu-accent));
+}
+.ticket-card .card-header {
+  background: linear-gradient(90deg, rgba(2,3,49,0.09), rgba(6,182,212,0.05));
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(230, 238, 248, 0.9);
+}
+.ticket-card .card-body {
+  padding: 16px;
+}
+.ticket-card .ticket-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace;
+  font-weight: 700;
+  background: rgba(2,3,49,0.06);
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--edu-primary);
+}
+
+.ticket-chip {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ticket-card .card-cta {
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(2, 3, 49, 0.22);
+}
+
+/* Map common Tailwind blue utilities to the platform primary (#020331) */
+.bg-blue-800 { background: var(--edu-primary) !important; }
+.bg-blue-900 { background: #010229 !important; }
+.bg-blue-700 { background: var(--edu-primary) !important; }
+.bg-blue-600 { background: var(--edu-primary) !important; }
+.bg-blue-50 { background: rgba(2,3,49,0.03) !important; }
+.text-blue-900 { color: var(--edu-primary) !important; }
+.text-blue-800 { color: var(--edu-primary) !important; }
+.text-blue-700 { color: rgba(2,3,49,0.9) !important; }
+.text-blue-600 { color: rgba(2,3,49,0.8) !important; }
+.text-blue-100 { color: rgba(2,3,49,0.08) !important; }
+.bg-blue-100 { background: rgba(2,3,49,0.06) !important; }
+.hover\:bg-blue-50:hover { background: rgba(2,3,49,0.03) !important; }
+.hover\:bg-blue-900:hover { background: #010229 !important; }
+.shadow-blue-800\/50 { box-shadow: 0 10px 30px rgba(2,3,49,0.5) !important; }
+.hover\:shadow-blue-800\/50:hover { box-shadow: 0 10px 30px rgba(2,3,49,0.5) !important; }
+.hover\:text-blue-950:hover { color: #000018 !important; }
+
+/* Utility to quickly style CTAs using the platform token */
+.edu-cta {
+  background: var(--edu-primary);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.edu-cta:hover { filter: brightness(0.92); }
