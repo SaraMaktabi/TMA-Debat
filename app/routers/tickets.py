@@ -223,7 +223,8 @@ async def list_tickets(created_by_user_id: str | None = None, db: Session = Depe
             "environnement": t.environnement,
             "technicien_assigne_id": str(t.technicien_assigne_id) if t.technicien_assigne_id else None,
             "created_by_user_id": str(t.created_by_user_id) if t.created_by_user_id else None,
-            "created_at": t.created_at.isoformat() if t.created_at else None
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "updated_at": t.updated_at.isoformat() if t.updated_at else None,
         } 
         for t in tickets
     ]

@@ -18,11 +18,10 @@ import {
   X,
   Bot,
   CheckCircle,
-  Clock,
   Calendar,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { userAPI, type UserDto } from "../api/client";
+import { ticketAPI, userAPI, type UserDto } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
 import PlatformSidebar from "../components/PlatformSidebar";
 
@@ -56,6 +55,26 @@ interface ApiErrorLike {
       detail?: unknown;
     };
   };
+}
+
+interface TicketHistoryItem {
+  id: string;
+  title: string;
+  status: string;
+  resolvedDate: string;
+  priority: string;
+  client: string;
+}
+
+interface TicketRecord {
+  id: string;
+  titre: string;
+  priorite: string | null;
+  statut: string;
+  technicien_assigne_id: string | null;
+  created_by_user_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const defaultCreateUserForm: CreateUserForm = {
@@ -118,8 +137,21 @@ export default function Users() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showTechnicianModal, setShowTechnicianModal] = useState(false);
   const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
-  const [technicianTickets, setTechnicianTickets] = useState<any[]>([]);
+  const [technicianTickets, setTechnicianTickets] = useState<TicketHistoryItem[]>([]);
   const [isLoadingTechnicianTickets, setIsLoadingTechnicianTickets] = useState(false);
+
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return "Date inconnue";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+  };
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
@@ -264,16 +296,31 @@ export default function Users() {
     setShowTechnicianModal(true);
 
     try {
-      // Fetch tickets resolved by this technician
-      // Mock data for now - replace with actual API call
-      const mockTickets = [
-        { id: 1, title: "Issue with email setup", status: "Resolved", resolvedDate: "2026-05-01", priority: "High", client: "John Doe" },
-        { id: 2, title: "Password reset request", status: "Resolved", resolvedDate: "2026-04-30", priority: "Medium", client: "Jane Smith" },
-        { id: 3, title: "Software installation", status: "Resolved", resolvedDate: "2026-04-28", priority: "Low", client: "Bob Johnson" },
-        { id: 4, title: "Network connectivity issue", status: "Resolved", resolvedDate: "2026-04-27", priority: "Critical", client: "Alice Brown" },
-        { id: 5, title: "Database backup failed", status: "Resolved", resolvedDate: "2026-04-25", priority: "High", client: "Tom Wilson" },
-      ];
-      setTechnicianTickets(mockTickets);
+      const allTickets: TicketRecord[] = await ticketAPI.list();
+      const technicianResolvedTickets = allTickets
+        .filter(
+          (ticket) =>
+            ticket.technicien_assigne_id === technician.id && String(ticket.statut) === "RESOLU"
+        )
+        .sort((firstTicket, secondTicket) => {
+          const firstDate = new Date(firstTicket.updated_at || firstTicket.created_at || 0).getTime();
+          const secondDate = new Date(secondTicket.updated_at || secondTicket.created_at || 0).getTime();
+          return secondDate - firstDate;
+        })
+        .map((ticket) => {
+          const client = users.find((user) => user.id === ticket.created_by_user_id);
+
+          return {
+            id: ticket.id,
+            title: ticket.titre,
+            status: "Résolu",
+            resolvedDate: formatDate(ticket.updated_at || ticket.created_at),
+            priority: ticket.priorite || "N/A",
+            client: client?.name || "Client inconnu",
+          } satisfies TicketHistoryItem;
+        });
+
+      setTechnicianTickets(technicianResolvedTickets);
     } catch {
       setTechnicianTickets([]);
     } finally {
@@ -536,12 +583,7 @@ export default function Users() {
                   {!isLoadingUsers && filteredUsers.map((user) => (
                     <tr 
                       key={user.id} 
-                      className={`hover:bg-gray-50 transition-all duration-200 ${user.role === "Technician" ? "cursor-pointer" : ""}`}
-                      onClick={() => {
-                        if (user.role === "Technician") {
-                          void openTechnicianModal(user);
-                        }
-                      }}
+                      className="hover:bg-gray-50 transition-all duration-200"
                     >
                       {/* User Info */}
                       <td className="px-6 py-4">
@@ -587,10 +629,15 @@ export default function Users() {
 
                       {/* Status */}
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(user.status)}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleUserStatus(user.id)}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 hover:scale-[1.02] ${getStatusColor(user.status)}`}
+                          title={user.status === "Active" ? "Passer en Inactive" : "Passer en Active"}
+                        >
                           <span className="w-2 h-2 rounded-full mr-2 bg-current opacity-60"></span>
                           {user.status}
-                        </span>
+                        </button>
                       </td>
 
                       {/* Last Active */}
@@ -602,13 +649,15 @@ export default function Users() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => toggleUserStatus(user.id)}
+                            type="button"
+                            onClick={() => void openTechnicianModal(user)}
                             className="p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                            title={user.status === "Active" ? "Deactivate" : "Activate"}
+                            title="Voir l'historique"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => openEditModal(user)}
                             className="p-2 text-gray-500 hover:bg-purple-50 hover:text-purple-600 rounded-lg transition-colors"
                             title="Edit"
@@ -617,6 +666,7 @@ export default function Users() {
                           </button>
                           <div className="relative group">
                             <button
+                              type="button"
                               onClick={() => setShowDeleteConfirm(showDeleteConfirm === user.id ? null : user.id)}
                               className="p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                               title="Delete"
