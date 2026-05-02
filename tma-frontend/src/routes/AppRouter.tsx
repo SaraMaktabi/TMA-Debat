@@ -24,7 +24,8 @@ function RouterInner() {
     location.pathname.startsWith("/users") ||
     location.pathname.startsWith("/admin-tickets") ||
     location.pathname.startsWith("/ticket-details") ||
-    location.pathname.startsWith("/tech/");
+    location.pathname.startsWith("/tech/") ||
+    location.pathname.startsWith("/debat/");
 
   return (
     <>
@@ -106,6 +107,7 @@ function RouterInner() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        
       </Routes>
     </>
   );
