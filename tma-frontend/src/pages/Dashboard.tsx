@@ -13,6 +13,10 @@ import {
   UsersIcon,
   Briefcase,
   ShieldAlert,
+  Flame,
+  Database,
+  Activity,
+  Layers3,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AgCharts } from "ag-charts-react";
@@ -191,6 +195,57 @@ export default function Dashboard() {
     return values.map((item) => ({ ...item, percent: Math.round((item.count / max) * 100) }));
   }, [filteredTickets]);
 
+  const statusOverview = useMemo(() => {
+    const open = filteredTickets.filter((ticket) => ticket.statut === "NOUVEAU").length;
+    const analysis = filteredTickets.filter((ticket) => ticket.statut === "EN_ANALYSE" || ticket.statut === "AFFECTE").length;
+    const resolved = filteredTickets.filter((ticket) => ticket.statut === "RESOLU").length;
+    return [
+      { label: "Ouverts", value: open, tone: "from-sky-400 to-cyan-300" },
+      { label: "En cours", value: analysis, tone: "from-amber-400 to-orange-300" },
+      { label: "Résolus", value: resolved, tone: "from-emerald-400 to-emerald-300" },
+    ];
+  }, [filteredTickets]);
+
+  const alertCards = useMemo(() => {
+    const oldestOpenTicket = [...filteredTickets]
+      .filter((ticket) => ticket.statut !== "RESOLU")
+      .sort((a, b) => {
+        const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aDate - bDate;
+      })[0];
+
+    const aiBacklog = kpis.pendingAI;
+    const urgentShare = kpis.total > 0 ? Math.round((kpis.critical / kpis.total) * 100) : 0;
+
+    return [
+      {
+        title: "Backlog IA",
+        value: aiBacklog,
+        detail: aiBacklog > 0 ? "Tickets sans score IA à traiter" : "Aucun ticket en attente de score",
+        icon: Database,
+        tone: "text-violet-700",
+        bg: "bg-violet-50",
+      },
+      {
+        title: "Tickets critiques",
+        value: `${kpis.critical} (${urgentShare}%)`,
+        detail: "Priorité P1 + P2 sur le filtre courant",
+        icon: Flame,
+        tone: "text-rose-700",
+        bg: "bg-rose-50",
+      },
+      {
+        title: "Plus ancien ouvert",
+        value: oldestOpenTicket ? oldestOpenTicket.titre : "Aucun",
+        detail: oldestOpenTicket?.application || "Pas de ticket ouvert",
+        icon: Activity,
+        tone: "text-cyan-700",
+        bg: "bg-cyan-50",
+      },
+    ];
+  }, [filteredTickets, kpis.critical, kpis.pendingAI, kpis.total]);
+
   return (
     <div className="min-h-screen w-full flex bg-white">
       <PlatformSidebar currentUser={currentUser} menuItems={menuItems} onLogout={logout} />
@@ -227,6 +282,124 @@ export default function Dashboard() {
                   Supervisez vos tickets, l'activite equipe et les priorites critiques en un seul espace.
                 </p>
               </section>
+
+              <section className="mb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <article className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 to-sky-300" />
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Taux de résolution</p>
+                  <div className="flex items-end justify-between gap-3 mt-3">
+                    <div>
+                      <p className="text-3xl font-black text-[#1a1545]">{kpis.resolutionRate}%</p>
+                      <p className="text-sm text-gray-500 mt-1">Sur la période filtrée</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-2xl bg-cyan-50 text-cyan-700 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-400 to-orange-300" />
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tickets critiques</p>
+                  <div className="flex items-end justify-between gap-3 mt-3">
+                    <div>
+                      <p className="text-3xl font-black text-[#1a1545]">{kpis.critical}</p>
+                      <p className="text-sm text-gray-500 mt-1">Priorité P1 et P2</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-fuchsia-300" />
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">En attente IA</p>
+                  <div className="flex items-end justify-between gap-3 mt-3">
+                    <div>
+                      <p className="text-3xl font-black text-[#1a1545]">{kpis.pendingAI}</p>
+                      <p className="text-sm text-gray-500 mt-1">Tickets sans score</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-2xl bg-violet-50 text-violet-700 flex items-center justify-center">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-lime-300" />
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipe active</p>
+                  <div className="flex items-end justify-between gap-3 mt-3">
+                    <div>
+                      <p className="text-3xl font-black text-[#1a1545]">{activeUsersCount}</p>
+                      <p className="text-sm text-gray-500 mt-1">Sur {usersCount} utilisateurs</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                      <UsersIcon className="w-6 h-6" />
+                    </div>
+                  </div>
+                </article>
+              </section>
+
+              {/* <section className="mb-5 grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-[#1a1545] inline-flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Statut du flux
+                    </h2>
+                    <span className="text-sm text-gray-500">Vue synthétique</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {statusOverview.map((item) => (
+                      <div key={item.label} className="rounded-xl border border-gray-200 bg-[#fafafe] p-4">
+                        <p className="text-xs text-gray-500 font-semibold mb-2">{item.label}</p>
+                        <div className="flex items-end justify-between gap-3">
+                          <p className="text-3xl font-black text-[#1a1545]">{item.value}</p>
+                          <span className={`h-10 w-10 rounded-full bg-gradient-to-br ${item.tone} opacity-90`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-xl bg-gradient-to-r from-[#08052e] to-[#1f1a5a] p-4 text-white flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-sky-200 mb-1">Focus admin</p>
+                      <p className="font-semibold">Alerte sur les tickets critiques et les dossiers sans score IA.</p>
+                    </div>
+                    <Layers3 className="w-7 h-7 text-sky-200 shrink-0" />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-[#1a1545] inline-flex items-center gap-2">
+                      <Bell className="w-5 h-5" />
+                      Alertes utiles
+                    </h2>
+                    <span className="text-sm text-gray-500">Triées par priorité</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {alertCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <div key={card.title} className="rounded-xl border border-gray-200 p-4 flex items-start gap-3">
+                          <div className={`h-11 w-11 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}>
+                            <Icon className={`w-5 h-5 ${card.tone}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">{card.title}</p>
+                            <p className="text-lg font-bold text-[#1a1545] truncate">{card.value}</p>
+                            <p className="text-sm text-gray-500 mt-1">{card.detail}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section> */}
 
               <section className="mb-5">
                 <div className="flex items-center justify-between mb-3">
@@ -267,7 +440,7 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-3">
                   <div className="rounded-xl bg-white border border-gray-200 p-3">
                     <div className="h-44">
                       <AgCharts options={trendChartOptions} />
@@ -275,13 +448,21 @@ export default function Dashboard() {
                   </div>
 
                   <div className="rounded-xl bg-white border border-gray-200 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-[#1a1545] inline-flex items-center gap-2">
+                        <Briefcase className="w-5 h-5" />
+                        Applications les plus actives
+                      </h3>
+                      <span className="text-xs text-gray-500">Top 4</span>
+                    </div>
+
                     {appDistribution.length === 0 ? (
                       <p className="text-sm text-gray-600">Aucune repartition disponible.</p>
                     ) : (
                       appDistribution.map((item) => (
                         <div key={item.label}>
                           <div className="flex items-center justify-between text-sm mb-1">
-                            <p className="font-semibold text-gray-800">{item.label}</p>
+                            <p className="font-semibold text-gray-800 truncate">{item.label}</p>
                             <p className="font-bold text-[#1a1545]">{item.count}</p>
                           </div>
                           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -293,7 +474,11 @@ export default function Dashboard() {
                   </div>
                 </div>
               </section>
+
+              
             </main>
+
+            
 
             <aside className="bg-[#f7f7f8] border-l border-gray-200 p-4 md:p-5 min-h-screen">
               <div className="flex items-center justify-between mb-6">

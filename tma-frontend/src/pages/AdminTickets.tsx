@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Bot,
   BarChart3,
+  ChartNoAxesCombined,
   UsersIcon,
   AlertCircle,
   CheckCircle,
@@ -19,6 +20,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AgCharts } from "ag-charts-react";
+import type { AgChartOptions } from "ag-charts-community";
 import { ticketAPI } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
 import PlatformSidebar from "../components/PlatformSidebar";
@@ -202,6 +205,99 @@ export default function AdminTickets() {
     ];
   }, [filteredTickets]);
 
+  const statusData = useMemo(
+    () => [
+      { label: "Ouverts", value: counts.nouveau },
+      { label: "En cours", value: counts.enCours },
+      { label: "Résolus", value: counts.resolu },
+    ],
+    [counts.enCours, counts.nouveau, counts.resolu]
+  );
+
+  const priorityData = useMemo(
+    () => [
+      { priority: "P1", label: "Critique", count: priorityDashboard[0]?.count ?? 0 },
+      { priority: "P2", label: "Haute", count: priorityDashboard[1]?.count ?? 0 },
+      { priority: "P3", label: "Normale", count: priorityDashboard[2]?.count ?? 0 },
+      { priority: "P4", label: "Faible", count: priorityDashboard[3]?.count ?? 0 },
+    ],
+    [priorityDashboard]
+  );
+
+  const trendData = useMemo(() => {
+    const days = 7;
+    const today = new Date();
+
+    return Array.from({ length: days }).map((_, index) => {
+      const day = new Date(today);
+      day.setDate(today.getDate() - (days - index - 1));
+      const dayKey = day.toISOString().slice(0, 10);
+      const label = day.toLocaleDateString("fr-FR", { weekday: "short" });
+      const total = filteredTickets.filter((ticket) => {
+        if (!ticket.created_at) return false;
+        return new Date(ticket.created_at).toISOString().slice(0, 10) === dayKey;
+      }).length;
+
+      return { day: label, total };
+    });
+  }, [filteredTickets]);
+
+  const statusChartOptions = useMemo((): AgChartOptions => {
+    return {
+      data: statusData,
+      background: { fill: "transparent" },
+      legend: { position: "bottom", item: { label: { color: "#1f2140" } } },
+      series: [
+        {
+          type: "donut",
+          angleKey: "value",
+          calloutLabelKey: "label",
+          innerRadiusRatio: 0.68,
+          fills: ["#0f4c81", "#5b21b6", "#047857"],
+          strokes: ["#ffffff"],
+        },
+      ],
+      padding: { top: 12, right: 12, bottom: 12, left: 12 },
+    };
+  }, [statusData]);
+
+  const priorityChartOptions = useMemo((): AgChartOptions => {
+    return {
+      data: priorityData,
+      background: { fill: "transparent" },
+      legend: { position: "bottom", item: { label: { color: "#1f2140" } } },
+      series: [
+        {
+          type: "pie",
+          angleKey: "count",
+          calloutLabelKey: "priority",
+          fills: ["#c02020", "#df5122", "#2d28b5", "#045a26"],
+          strokes: ["#ffffff"],
+        },
+      ],
+      padding: { top: 12, right: 12, bottom: 12, left: 12 },
+    };
+  }, [priorityData]);
+
+  const trendChartOptions = useMemo((): AgChartOptions => {
+    return {
+      data: trendData,
+      background: { fill: "transparent" },
+      legend: { enabled: false },
+      series: [
+        {
+          type: "line",
+          xKey: "day",
+          yKey: "total",
+          stroke: "#0f4c81",
+          strokeWidth: 3,
+          marker: { enabled: true, fill: "#0f4c81", stroke: "#0f172a", size: 6 },
+        },
+      ],
+      padding: { top: 8, right: 8, bottom: 8, left: 8 },
+    };
+  }, [trendData]);
+
   const menuItems = [
     { icon: Home, label: "Accueil", href: "/", badge: null },
     { icon: BarChart3, label: "Tableau de Bord", href: "/dashboard", badge: null },
@@ -319,52 +415,6 @@ export default function AdminTickets() {
 
       <div className="flex-1 overflow-auto bg-[#f6f6f7]">
         <div className="p-4 md:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3 flex-wrap">
-            <div className="relative w-full max-w-md">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search ticket, app, priorite"
-                className="w-full rounded-xl border border-gray-200 bg-white pl-4 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-200"
-              />
-            </div>
-
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
-                className="text-sm bg-transparent outline-none"
-              >
-                <option value="7d">7 jours</option>
-                <option value="30d">30 jours</option>
-                <option value="90d">90 jours</option>
-                <option value="all">Tout</option>
-              </select>
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm"
-            >
-              <option value="ALL">Tous statuts</option>
-              <option value="OUVERT">Ouvert</option>
-              <option value="EN_ANALYSE">En analyse</option>
-              <option value="AFFECTE">Affecte</option>
-              <option value="RESOLU">Resolue</option>
-            </select>
-
-            <button
-              onClick={refreshTickets}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-[#1a1545] hover:bg-gray-50 disabled:opacity-60"
-            >
-              <RefreshCcw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-          </div>
-
           <section className="rounded-2xl bg-[#020331] text-white p-5 md:p-7 mb-5 overflow-hidden relative">
             <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full border-4 border-sky-100/50"></div>
             <div className="absolute right-20 bottom-4 w-14 h-14 rounded-full border-2 border-fuchsia-100/50"></div>
@@ -383,7 +433,44 @@ export default function AdminTickets() {
             </button>
           </section>
 
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+              <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1a1545]">Dashboard priorité</h2>
+              <span className="text-sm text-gray-500">Sur tickets filtrés</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              {priorityDashboard.map((item) => (
+                <div key={item.key} className="rounded-xl border border-gray-200 p-4 bg-[#fafafe]">
+                  <p className="text-xs text-gray-500 mb-2">Priorité {item.key}</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${item.tone}`}>{item.label}</span>
+                    <span className="text-lg font-bold text-[#1a1545]">{item.count}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">{item.percent}% du total</p>
+                </div>
+              ))}
+            </div>
+
+            {/* <div className="space-y-3">
+              {priorityDashboard.map((item) => (
+                <div key={`${item.key}-bar`}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-semibold text-gray-700">{item.key} - {item.label}</span>
+                    <span className="font-bold text-[#1a1545]">{item.percent}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${item.key === "P1" ? "bg-red-400" : item.key === "P2" ? "bg-orange-400" : item.key === "P3" ? "bg-yellow-400" : "bg-green-400"}`}
+                      style={{ width: `${item.percent}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div> */}
+          </section>
+
+          {/* <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="rounded-xl border border-gray-200 bg-white p-4">
               <p className="text-xs text-gray-500 font-semibold">Total</p>
               <p className="text-2xl font-bold text-[#1a1545]">{counts.total}</p>
@@ -404,71 +491,121 @@ export default function AdminTickets() {
               <p className="text-xs text-gray-500 font-semibold">Sans score IA</p>
               <p className="text-2xl font-bold text-[#1a1545]">{counts.pendingScore}</p>
             </div>
-          </div>
+          </div> */}
 
-          <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#1a1545]">Dashboard priorité</h2>
-              <span className="text-sm text-gray-500">Sur tickets filtrés</span>
+          <section className="mb-6 grid grid-cols-1 xl:grid-cols-[1.3fr_1fr_1fr] gap-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-[#1a1545] inline-flex items-center gap-2">
+                  <ChartNoAxesCombined className="w-5 h-5" />
+                  Evolution sur 7 jours
+                </h2>
+              </div>
+              <div className="h-64">
+                <AgCharts options={trendChartOptions} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              {priorityDashboard.map((item) => (
-                <div key={item.key} className="rounded-xl border border-gray-200 p-4 bg-[#fafafe]">
-                  <p className="text-xs text-gray-500 mb-2">Priorité {item.key}</p>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${item.tone}`}>{item.label}</span>
-                    <span className="text-lg font-bold text-[#1a1545]">{item.count}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">{item.percent}% du total</p>
-                </div>
-              ))}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-[#1a1545]">Répartition des statuts</h2>
+              </div>
+              <div className="h-80">
+                <AgCharts options={statusChartOptions} />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {priorityDashboard.map((item) => (
-                <div key={`${item.key}-bar`}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-semibold text-gray-700">{item.key} - {item.label}</span>
-                    <span className="font-bold text-[#1a1545]">{item.percent}%</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.key === "P1" ? "bg-red-400" : item.key === "P2" ? "bg-orange-400" : item.key === "P3" ? "bg-yellow-400" : "bg-green-400"}`}
-                      style={{ width: `${item.percent}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-[#1a1545]">Répartition des priorités</h2>
+              </div>
+              <div className="h-80">
+                <AgCharts options={priorityChartOptions} />
+              </div>
             </div>
           </section>
 
+       
+
+
           <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-2xl font-bold text-[#1a1545]">Liste tickets</h2>
-
-            <div className="flex items-center bg-white rounded-xl p-1 border border-gray-200">
-              <button
-                onClick={() => setViewMode("cards")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
-                  viewMode === "cards" ? "text-white shadow-md" : "text-gray-600 hover:text-gray-900"
-                }`}
-                style={viewMode === "cards" ? { backgroundColor: "#08052e" } : {}}
-              >
-                <Layout className="w-4 h-4" />
-                Cards
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
-                  viewMode === "list" ? "text-white shadow-md" : "text-gray-600 hover:text-gray-900"
-                }`}
-                style={viewMode === "list" ? { backgroundColor: "#08052e" } : {}}
-              >
-                <List className="w-4 h-4" />
-                Liste
-              </button>
-            </div>
           </div>
+
+          <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-1">
+                <div className="relative w-full lg:max-w-md">
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search ticket, app, priorite"
+                    className="w-full rounded-xl border border-gray-200 bg-[#fafafe] pl-4 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-[#fafafe]">
+                    <Filter className="w-4 h-4 text-gray-500" />
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
+                      className="text-sm bg-transparent outline-none"
+                    >
+                      <option value="7d">7 jours</option>
+                      <option value="30d">30 jours</option>
+                      <option value="90d">90 jours</option>
+                      <option value="all">Tout</option>
+                    </select>
+                  </div>
+
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-gray-200 bg-[#fafafe] text-sm"
+                  >
+                    <option value="ALL">Tous statuts</option>
+                    <option value="OUVERT">Ouvert</option>
+                    <option value="EN_ANALYSE">En analyse</option>
+                    <option value="AFFECTE">Affecte</option>
+                    <option value="RESOLU">Resolue</option>
+                  </select>
+
+                  <button
+                    onClick={refreshTickets}
+                    disabled={refreshing}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#08052e] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+                  >
+                    <RefreshCcw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-white rounded-xl p-1 border border-gray-200 self-start xl:self-auto">
+                <button
+                  onClick={() => setViewMode("cards")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    viewMode === "cards" ? "text-white shadow-md" : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  style={viewMode === "cards" ? { backgroundColor: "#08052e" } : {}}
+                >
+                  <Layout className="w-4 h-4" />
+                  Cards
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    viewMode === "list" ? "text-white shadow-md" : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  style={viewMode === "list" ? { backgroundColor: "#08052e" } : {}}
+                >
+                  <List className="w-4 h-4" />
+                  Liste
+                </button>
+              </div>
+            </div>
+          </section>
 
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             {viewMode === "cards" && (
