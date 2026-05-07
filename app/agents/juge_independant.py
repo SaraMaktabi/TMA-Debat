@@ -6,6 +6,7 @@ import aiohttp
 import json
 import re
 from app.core.config import config
+from app.agents.juge_utils import score_fallback_juge
 
 async def evaluer_debat(ticket, historique: list, techniciens: list) -> dict:
     """
@@ -102,26 +103,12 @@ async def _fallback_decision(ticket, historique: list, techniciens: list) -> dic
     """
     Décision de fallback basée sur des règles simples (pas d'IA)
     """
-    from app.agents.profil import recommander_techniciens
     from app.database import SessionLocal
     
     db = SessionLocal()
     try:
-        analyse_nlp = ticket.analyse_nlp or {"technologies": [], "systemes_impactes": []}
-        meilleurs = recommander_techniciens(analyse_nlp, db, limit=1)
-        
-        if meilleurs:
-            gagnant = meilleurs[0]
-            gagnant_nom = f"{gagnant.prenom} {gagnant.nom}"
-        else:
-            gagnant = techniciens[0]
-            gagnant_nom = f"{gagnant.prenom} {gagnant.nom}"
-            
-        return {
-            "gagnant_nom": gagnant_nom,
-            "scores": {f"{t.prenom} {t.nom}": 50 for t in techniciens},
-            "justification": "Décision automatique par fallback (Qwen3 indisponible)",
-            "confiance": "basse"
-        }
+        resultat = score_fallback_juge(ticket, historique, techniciens)
+        resultat["justification"] = f"Décision automatique par fallback (Qwen3 indisponible). {resultat['justification']}"
+        return resultat
     finally:
         db.close()

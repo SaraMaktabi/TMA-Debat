@@ -157,7 +157,7 @@ export default function TicketDetails() {
   }
 
   if (error || !ticket) {
-    return (
+    return (  
       <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
          <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">

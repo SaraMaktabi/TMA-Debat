@@ -1,6 +1,7 @@
 from openai import OpenAI
 import json
 from app.core.config import config
+from app.agents.juge_utils import score_fallback_juge
 
 client = OpenAI(api_key=config.OPENAI_API_KEY)
 
@@ -61,10 +62,13 @@ async def evaluer_debat(ticket, historique: list, techniciens: list) -> dict:
         return json.loads(response.choices[0].message.content)
     except Exception as e:
         print(f"❌ Erreur juge: {e}")
+        resultat = score_fallback_juge(ticket, historique, techniciens)
+        gagnant_nom = resultat.get("gagnant_nom", "")
+        gagnant = next((t for t in techniciens if f"{t.prenom} {t.nom}" == gagnant_nom), techniciens[0])
         return {
-            "gagnant_id": str(techniciens[0].id),
-            "gagnant_nom": f"{techniciens[0].prenom} {techniciens[0].nom}",
-            "scores": {f"{t.prenom} {t.nom}": 50 for t in techniciens},
-            "justification": "Décision automatique par fallback",
-            "recommandation": "Le premier technicien semble adapté pour ce ticket"
+            "gagnant_id": str(gagnant.id),
+            "gagnant_nom": gagnant_nom or f"{gagnant.prenom} {gagnant.nom}",
+            "scores": resultat.get("scores", {}),
+            "justification": f"Décision automatique par fallback. {resultat.get('justification', '')}".strip(),
+            "recommandation": "Le technicien le mieux aligné avec le ticket et le débat a été retenu.",
         }
