@@ -1,13 +1,24 @@
 import base64
 import hashlib
 import hmac
+from io import BytesIO
 import re
 import secrets
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+try:
+    from docx import Document
+except ImportError:
+    Document = None
+
+try:
+    from pypdf import PdfReader
+except ImportError:
+    PdfReader = None
 
 from app.database import get_db
 from app.models.technicien import Technicien
@@ -127,6 +138,93 @@ def _parse_competences_text(competences_text: str | None) -> dict:
     return competences
 
 
+CV_SKILL_PATTERNS: dict[str, tuple[str, ...]] = {
+    "Python": (r"\bpython\b", r"\bfastapi\b", r"\bdjango\b", r"\bflask\b", r"\bpandas\b", r"\bnumpy\b"),
+    "JavaScript": (r"\bjavascript\b", r"\bnode\.?js\b", r"\breact\b", r"\bvue\b", r"\bangular\b"),
+    "TypeScript": (r"\btypescript\b", r"\bts\b"),
+    "React": (r"\breact\b", r"\bnext\.?js\b"),
+    "SQL": (r"\bsql\b", r"\bpostgresql\b", r"\bmysql\b", r"\boracle\b"),
+    "API": (r"\bapi\b", r"\brest\b", r"\bjson\b", r"\bmicroservices?\b"),
+    "Docker": (r"\bdocker\b", r"\bkubernetes\b", r"\bcontainer\w*\b"),
+    "Git": (r"\bgit\b", r"\bgithub\b", r"\bgitlab\b"),
+    "Linux": (r"\blinux\b", r"\bubuntu\b", r"\bdebian\b"),
+    "Windows": (r"\bwindows\b", r"\bactive directory\b"),
+    "Réseau": (r"\br[eé]seau\b", r"\bnetwork\b", r"\brouter\b", r"\bswitch\b", r"\btcp/ip\b"),
+    "Cybersécurité": (r"\bsecurity\b", r"\bcyber\w*\b", r"\bsiem\b", r"\bendpoint\b"),
+    "Support": (r"\bsupport\b", r"\bhelpdesk\b", r"\bservice desk\b", r"\bd[ée]pannage\b", r"\btroubleshoot\w*\b"),
+    "HTML": (r"\bhtml\b",),
+    "CSS": (r"\bcss\b", r"\btailwind\b", r"\bsass\b"),
+    "Java": (r"\bjava\b",),
+    "C#": (r"\bc#\b", r"\b\.net\b", r"\basp\.net\b"),
+    "PHP": (r"\bphp\b", r"\blaravel\b"),
+}
+
+
+def _extract_text_from_cv_upload(cv_file: UploadFile | None) -> str:
+    if cv_file is None:
+        return ""
+
+    raw_bytes = cv_file.file.read()
+    filename = (cv_file.filename or "").lower()
+    content_type = (cv_file.content_type or "").lower()
+
+    if not raw_bytes:
+        return ""
+
+    if (filename.endswith(".pdf") or content_type == "application/pdf") and PdfReader is not None:
+        try:
+            reader = PdfReader(BytesIO(raw_bytes))
+            pages_text = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    pages_text.append(page_text)
+            return "\n".join(pages_text).strip()
+        except Exception:
+            return raw_bytes.decode("utf-8", errors="ignore").strip()
+
+    if (
+        (filename.endswith((".docx", ".doc")) or content_type in {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        })
+        and Document is not None
+    ):
+        try:
+            document = Document(BytesIO(raw_bytes))
+            paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
+            return "\n".join(paragraphs).strip()
+        except Exception:
+            return raw_bytes.decode("utf-8", errors="ignore").strip()
+
+    return raw_bytes.decode("utf-8", errors="ignore").strip()
+
+
+def _normaliser_cv_texte(texte: str) -> str:
+    if not isinstance(texte, str):
+        return ""
+
+    cleaned = texte.replace("\u00a0", " ")
+    cleaned = re.sub(r"(?<=[A-Za-zÀ-ÿ])\s+(?=[A-Za-zÀ-ÿ])", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _extract_competences_from_cv_text(cv_text: str) -> dict:
+    if not isinstance(cv_text, str):
+        return {}
+
+    lowered_text = _normaliser_cv_texte(cv_text).lower()
+    competences: dict[str, int] = {}
+
+    for skill, patterns in CV_SKILL_PATTERNS.items():
+        matches = sum(1 for pattern in patterns if re.search(pattern, lowered_text, flags=re.IGNORECASE))
+        if matches:
+            competences[skill] = min(5, matches + 1)
+
+    return competences
+
+
 def _read_password_hash(technicien: Technicien) -> str | None:
     competences = technicien.competences if isinstance(technicien.competences, dict) else {}
     auth_meta = competences.get("_auth", {}) if isinstance(competences.get("_auth", {}), dict) else {}
@@ -164,38 +262,73 @@ def list_users(db: Session = Depends(get_db)):
     return [_serialize_user(user) for user in users]
 
 
-@router.post("/", status_code=201)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
-    role = (payload.role or "Employee").strip() or "Employee"
-    cv_texte = payload.cv_texte.strip() if isinstance(payload.cv_texte, str) else ""
-    competences_pro = _parse_competences_text(payload.competences)
+@router.post("/extract-cv-skills")
+def extract_cv_skills(
+    cv_texte: str = Form(""),
+    cv_file: UploadFile | None = File(None),
+):
+    cv_texte_nettoye = cv_texte.strip() if isinstance(cv_texte, str) else ""
+    cv_extrait = _extract_text_from_cv_upload(cv_file)
+    texte_cv_final = cv_extrait or cv_texte_nettoye
 
-    existing = db.query(Technicien).filter(Technicien.email == payload.email).first()
+    if not texte_cv_final:
+        raise HTTPException(status_code=400, detail="Ajoutez un CV (fichier ou texte) pour extraire les competences")
+
+    competences_cv = _extract_competences_from_cv_text(texte_cv_final)
+    return {
+        "competences": competences_cv,
+        "cv_texte_extrait": texte_cv_final,
+    }
+
+
+@router.post("/", status_code=201)
+def create_user(
+    nom: str = Form(...),
+    prenom: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("Employee"),
+    department: str = Form("Support"),
+    phone: str = Form(""),
+    cv_texte: str = Form(""),
+    competences: str = Form(""),
+    cv_file: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
+    role_normalized = (role or "Employee").strip() or "Employee"
+    cv_texte_nettoye = cv_texte.strip() if isinstance(cv_texte, str) else ""
+    competences_pro = _parse_competences_text(competences)
+    cv_extrait = _extract_text_from_cv_upload(cv_file)
+    texte_cv_final = cv_extrait or cv_texte_nettoye
+    competences_cv = _extract_competences_from_cv_text(texte_cv_final)
+
+    existing = db.query(Technicien).filter(Technicien.email == email.strip().lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="Un utilisateur avec cet email existe deja")
 
     user = Technicien(
         id=uuid4(),
-        nom=payload.nom.strip(),
-        prenom=payload.prenom.strip(),
-        email=payload.email.strip().lower(),
+        nom=nom.strip(),
+        prenom=prenom.strip(),
+        email=email.strip().lower(),
         competences={
+            **competences_cv,
             **competences_pro,
             "_meta": {
-                "role": role,
-                "department": payload.department or "Support",
-                "phone": payload.phone or "",
+                "role": role_normalized,
+                "department": department or "Support",
+                "phone": phone or "",
             }
         },
-        cv_texte=cv_texte,
+        cv_texte=texte_cv_final,
         disponibilite=True,
         charge_actuelle=0,
     )
 
-    if len(payload.password.strip()) < 6:
+    if len(password.strip()) < 6:
         raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 6 caracteres")
 
-    _set_password_hash(user, _hash_password(payload.password.strip()))
+    _set_password_hash(user, _hash_password(password.strip()))
 
     db.add(user)
     db.commit()
@@ -262,17 +395,30 @@ def delete_user(user_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login_user(payload: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(Technicien).filter(Technicien.email == payload.email.strip().lower()).first()
+    email = payload.email.strip().lower()
+    print(f"\n[LOGIN] Email recu: {email}")
+    print(f"[LOGIN] Password recu: {'*' * len(payload.password)}")
+    
+    user = db.query(Technicien).filter(Technicien.email == email).first()
     if not user:
+        print(f"[LOGIN] User NOT found for {email}")
         raise HTTPException(status_code=401, detail="Email ou mot de passe invalide")
 
+    print(f"[LOGIN] User found: {user.prenom} {user.nom}")
+    
     if not user.disponibilite:
         raise HTTPException(status_code=403, detail="Compte inactif")
 
     password_hash = _read_password_hash(user)
+    print(f"[LOGIN] Password hash exists: {password_hash is not None}")
+    if password_hash:
+        print(f"[LOGIN] Hash starts with: {password_hash[:40]}...")
+    
     if not _verify_password(payload.password, password_hash):
+        print(f"[LOGIN] Password verification FAILED")
         raise HTTPException(status_code=401, detail="Email ou mot de passe invalide")
 
+    print(f"[LOGIN] Password verification OK - Login successful")
     serialized = _serialize_user(user)
     return {
         "message": "Connexion reussie",

@@ -12,6 +12,7 @@ import SignUp from "../pages/SignUp";
 import Demo from "../pages/Demo";
 import TechnicianDashboard from "../pages/TechnicianDashboard";
 import TechnicianTickets from "../pages/TechnicianTickets";
+import Profile from "../pages/Profile";
 import ProtectedRoute from "../components/ProtectedRoute";
 import SiteNavbar from "../components/SiteNavbar";
 
@@ -107,6 +108,14 @@ function RouterInner() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
         
       </Routes>
     </>

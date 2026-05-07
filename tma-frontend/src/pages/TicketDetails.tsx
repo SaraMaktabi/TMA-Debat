@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, AlertTriangle, CheckCircle, Search, Users, HelpCircle, Bug, Shield, Database, Cpu } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ticketAPI } from "../api/client";
 import { getSession, isTechnicianRole } from "../utils/auth";
 
@@ -32,22 +32,41 @@ export default function TicketDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const backPath = isTechnicianRole(session?.role) ? "/tech/tickets" : "/tickets";
+  const isPollingRef = useRef(false);
+
+  const buildTicketSignature = (data: Ticket | null) => {
+    if (!data) return "";
+    return JSON.stringify({
+      statut: data.statut,
+      score: data.score,
+      analyse_nlp: data.analyse_nlp,
+      created_at: data.created_at,
+    });
+  };
 
   useEffect(() => {
     if (!ticketId) return;
 
     const fetchTicket = async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
       try {
         const data = await ticketAPI.getById(ticketId, {
           requesterUserId: session?.id,
           requesterRole: session?.role,
         });
-        setTicket(data);
+        setTicket((previous) => {
+          if (buildTicketSignature(previous) === buildTicketSignature(data)) {
+            return previous;
+          }
+          return data;
+        });
         setError(null);
       } catch (err: any) {
         console.error("Erreur:", err);
         setError("Impossible de charger le ticket");
       } finally {
+        isPollingRef.current = false;
         setLoading(false);
       }
     };
@@ -55,11 +74,12 @@ export default function TicketDetails() {
     fetchTicket();
 
     const interval = setInterval(() => {
-      fetchTicket();
+      if (document.hidden) return;
+      void fetchTicket();
     }, 10000);
 
     const handleFocus = () => {
-      fetchTicket();
+      void fetchTicket();
     };
 
     window.addEventListener("focus", handleFocus);
@@ -139,7 +159,7 @@ export default function TicketDetails() {
   if (error || !ticket) {
     return (
       <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
-        <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50">
+         <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
             <button
               onClick={() => navigate(backPath)}
@@ -149,7 +169,7 @@ export default function TicketDetails() {
               Retour aux tickets
             </button>
           </div>
-        </nav>
+        </nav> 
         <div className="flex items-center justify-center pt-20 px-4">
           <div className="platform-card px-8 py-10 text-center max-w-sm w-full">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm">
@@ -171,7 +191,7 @@ export default function TicketDetails() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#f8fbff_42%,#ffffff_100%)]">
-      <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50 shadow-sm">
+      {/* <nav className="border-b border-white/70 bg-white/75 backdrop-blur sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
           <button
             onClick={() => navigate(backPath)}
@@ -181,9 +201,18 @@ export default function TicketDetails() {
             Retour aux tickets
           </button>
         </div>
-      </nav>
+      </nav> */}
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-20 pb-8">
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(backPath)}
+            className="edu-cta inline-flex items-center gap-2"
+          >
+            <ArrowLeft size={18} />
+            Retour aux tickets
+          </button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="platform-card p-4 ring-1 ring-white/70">
             <p className="text-xs text-gray-500 mb-1">Priorité</p>

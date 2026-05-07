@@ -47,6 +47,7 @@ interface CreateUserForm {
   department: string;
   cv_texte: string;
   competences: string;
+  cvFile: File | null;
 }
 
 interface ApiErrorLike {
@@ -87,6 +88,7 @@ const defaultCreateUserForm: CreateUserForm = {
   department: "Support",
   cv_texte: "",
   competences: "",
+  cvFile: null,
 };
 
 function splitName(fullName: string): { prenom: string; nom: string } {
@@ -129,6 +131,9 @@ export default function Users() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [createUserForm, setCreateUserForm] = useState<CreateUserForm>(defaultCreateUserForm);
+  const [isExtractingCvSkills, setIsExtractingCvSkills] = useState(false);
+  const [extractCvError, setExtractCvError] = useState<string | null>(null);
+  const [extractedCompetences, setExtractedCompetences] = useState<Record<string, number>>({});
   const [showEditModal, setShowEditModal] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
@@ -222,10 +227,13 @@ export default function Users() {
         department: createUserForm.department,
         cv_texte: createUserForm.cv_texte,
         competences: createUserForm.competences,
+        cvFile: createUserForm.cvFile,
       });
 
       setShowCreateModal(false);
       setCreateUserForm(defaultCreateUserForm);
+      setExtractedCompetences({});
+      setExtractCvError(null);
       await loadUsers();
     } catch (error: unknown) {
       const apiError = error as ApiErrorLike;
@@ -234,6 +242,38 @@ export default function Users() {
       setCreateError(typeof detail === "string" ? detail : "Creation de l'utilisateur echouee.");
     } finally {
       setIsCreatingUser(false);
+    }
+  };
+
+  const formatCompetencesForPayload = (competences: Record<string, number>) =>
+    Object.entries(competences)
+      .sort((first, second) => second[1] - first[1])
+      .map(([name, level]) => `${name}:${level}`)
+      .join(", ");
+
+  const handleAnalyzeCv = async () => {
+    setExtractCvError(null);
+    setIsExtractingCvSkills(true);
+
+    try {
+      const result = await userAPI.extractCvSkills({
+        cvFile: createUserForm.cvFile,
+        cv_texte: createUserForm.cv_texte,
+      });
+      setExtractedCompetences(result.competences || {});
+      setCreateUserForm((prev) => ({
+        ...prev,
+        cv_texte: result.cv_texte_extrait || prev.cv_texte,
+        competences: formatCompetencesForPayload(result.competences || {}),
+      }));
+    } catch (error: unknown) {
+      const apiError = error as ApiErrorLike;
+      const detail =
+        typeof apiError.response?.data?.detail === "string" ? apiError.response.data.detail : null;
+      setExtractCvError(detail || "Impossible d'extraire les competences depuis le CV.");
+      setExtractedCompetences({});
+    } finally {
+      setIsExtractingCvSkills(false);
     }
   };
 
@@ -251,6 +291,7 @@ export default function Users() {
       department: user.department,
       cv_texte: "",
       competences: "",
+      cvFile: null,
     });
     setShowEditModal(true);
   };
@@ -743,7 +784,11 @@ export default function Users() {
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setExtractedCompetences({});
+                    setExtractCvError(null);
+                  }}
                   className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
                   aria-label="Close create user modal"
                 >
@@ -822,39 +867,77 @@ export default function Users() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Competences professionnelles
+                        CV du technicien
                       </label>
-                      <textarea
-                        required
-                        value={createUserForm.competences}
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt"
                         onChange={(e) =>
-                          setCreateUserForm((prev) => ({ ...prev, competences: e.target.value }))
+                          setCreateUserForm((prev) => ({
+                            ...prev,
+                            cvFile: e.target.files?.[0] ?? null,
+                          }))
                         }
-                        placeholder="React:5, Python:4, SQL:3"
-                        rows={4}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Format attendu: Competence:niveau, separees par des virgules.
+                        Importe un CV PDF, DOCX ou TXT. Les competences seront extraites automatiquement.
                       </p>
+                      {createUserForm.cvFile && (
+                        <p className="mt-1 text-xs font-medium text-[#0f0745]">
+                          Fichier selectionne: {createUserForm.cvFile.name}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleAnalyzeCv();
+                        }}
+                        disabled={isExtractingCvSkills || (!createUserForm.cvFile && !createUserForm.cv_texte.trim())}
+                        className="mt-3 inline-flex items-center px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                        style={{ backgroundColor: "#08052e" }}
+                      >
+                        {isExtractingCvSkills ? "Extraction..." : "Analyser le CV"}
+                      </button>
+                      {extractCvError && (
+                        <p className="mt-2 text-xs text-red-600">{extractCvError}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         CV / Experience professionnelle
                       </label>
                       <textarea
-                        required
                         value={createUserForm.cv_texte}
                         onChange={(e) =>
                           setCreateUserForm((prev) => ({ ...prev, cv_texte: e.target.value }))
                         }
-                        placeholder="Resume experience, certifications, and technical background"
+                        placeholder="Optionnel: resume des experiences, certifications, ou contexte manquant dans le CV"
                         rows={4}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                     </div>
                   </div>
                 )}
+
+                {(createUserForm.role === "Employee" || createUserForm.role === "Technician") &&
+                  Object.keys(extractedCompetences).length > 0 && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
+                      <p className="text-sm font-semibold text-[#0f0745] mb-3">Competences extraites du CV</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(extractedCompetences)
+                          .sort((first, second) => second[1] - first[1])
+                          .map(([name, level]) => (
+                            <span
+                              key={name}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white border border-blue-200 text-[#1a1545]"
+                            >
+                              {name} (N{level})
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -896,7 +979,11 @@ export default function Users() {
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setExtractedCompetences({});
+                      setExtractCvError(null);
+                    }}
                     className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
                   >
                     Cancel

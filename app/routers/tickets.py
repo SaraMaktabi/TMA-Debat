@@ -415,6 +415,9 @@ async def assign_ticket(ticket_id: str, payload: TicketAssign, db: Session = Dep
     if not ticket:
         raise HTTPException(404, "Ticket non trouvé")
 
+    if str(ticket.statut or "").strip().upper() == "RESOLU":
+        raise HTTPException(409, "Ce ticket est déjà résolu, l'affectation est verrouillée")
+
     technicien = db.query(Technicien).filter(Technicien.id == technicien_id_uuid).first()
     if not technicien:
         raise HTTPException(404, "Technicien non trouvé")

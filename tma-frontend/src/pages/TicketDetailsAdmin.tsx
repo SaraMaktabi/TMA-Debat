@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
+import { AlertCircle, ArrowLeft, Loader, Zap, TrendingUp, Clock, Tag, MessageCircle, BarChart3, UsersIcon, Home, CheckCircle, Copy, AlertTriangle, Shield, Database, Cpu, Activity, FileText, Target, Award, UserCircle2, Mail, Phone, Building2, Sparkles, Lock } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ticketAPI, userAPI, type UserDto } from "../api/client";
 import { clearSession, getSession } from "../utils/auth";
 import PlatformSidebar from "../components/PlatformSidebar";
@@ -26,13 +26,14 @@ interface Ticket {
   technicien_assigne_id?: string | null;
   created_by_user_id?: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 interface Recommendation {
   id: string;
   nom: string;
   email: string;
-  competences?: Record<string, number>;
+  competences?: Record<string, unknown>;
   score_compatibilite: number;
   raisons?: string[];
   top_competences?: string[];
@@ -53,6 +54,8 @@ export default function TicketDetailsAdmin() {
   const [clientLoading, setClientLoading] = useState(false);
   const [assigningTechnicianId, setAssigningTechnicianId] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<string | null>(null);
+  const isPollingRef = useRef(false);
+  const lastRecommendationKeyRef = useRef<string>("");
 
   const logout = () => {
     clearSession();
@@ -65,46 +68,75 @@ export default function TicketDetailsAdmin() {
     facteurs_score: data?.facteurs_score ?? data?.facteurs,
   });
 
+  const buildTicketSignature = (data: Ticket | null) => {
+    if (!data) return "";
+    return JSON.stringify({
+      statut: data.statut,
+      score: data.score_difficulte,
+      analyse_nlp: data.analyse_nlp,
+      technicien_assigne_id: data.technicien_assigne_id,
+      created_by_user_id: data.created_by_user_id,
+      updated_at: data.updated_at,
+    });
+  };
+
   useEffect(() => {
     if (!ticketId) return;
 
     const fetchTicket = async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
       try {
         const data = await ticketAPI.getById(ticketId);
-        setTicket(normalizeTicket(data));
+        const normalized = normalizeTicket(data);
+        setTicket((previous) => {
+          if (buildTicketSignature(previous) === buildTicketSignature(normalized)) {
+            return previous;
+          }
+          return normalized;
+        });
         setError(null);
       } catch (err: any) {
         console.error("Erreur:", err);
         setError("Impossible de charger le ticket");
       } finally {
+        isPollingRef.current = false;
         setLoading(false);
       }
     };
 
     fetchTicket();
 
-    // Polling automatique pour garder le statut et les infos synchro avec le backend
-    const interval = setInterval(async () => {
-      try {
-        const data = await ticketAPI.getById(ticketId);
-        const normalized = normalizeTicket(data);
-        setTicket(normalized);
-      } catch (err) {
-        console.error("Erreur polling:", err);
-      }
-    }, 3000);
+    // Polling moins agressif pour eviter le lag UI
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      void fetchTicket();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [ticketId]);
 
+  const recommendationKey = useMemo(() => {
+    if (!ticketId || !ticket) return "";
+    return JSON.stringify({
+      ticketId,
+      score: ticket.score_difficulte ?? null,
+      analyse_nlp: ticket.analyse_nlp ?? null,
+      titre: ticket.titre ?? "",
+      description: ticket.description ?? "",
+    });
+  }, [ticketId, ticket?.score_difficulte, ticket?.analyse_nlp, ticket?.titre, ticket?.description]);
+
   useEffect(() => {
-    if (!ticketId || !ticket) return;
+    if (!ticketId || !ticket || !recommendationKey) return;
+    if (lastRecommendationKeyRef.current === recommendationKey) return;
 
     const fetchRecommendations = async () => {
       try {
         setRecommendationsLoading(true);
         const data = await ticketAPI.getRecommendations(ticketId);
         setRecommendations(Array.isArray(data) ? data : []);
+        lastRecommendationKeyRef.current = recommendationKey;
       } catch (err) {
         console.error("Erreur recommandations:", err);
         setRecommendations([]);
@@ -114,7 +146,7 @@ export default function TicketDetailsAdmin() {
     };
 
     fetchRecommendations();
-  }, [ticketId, ticket?.analyse_nlp, ticket?.score_difficulte]);
+  }, [ticketId, ticket, recommendationKey]);
 
   useEffect(() => {
     if (!ticket?.created_by_user_id) {
@@ -207,6 +239,10 @@ export default function TicketDetailsAdmin() {
 
   const assignRecommendedTechnician = async (technicien: Recommendation) => {
     if (!ticketId) return;
+    if (ticketIsResolved) {
+      setAssignmentMessage("Ce ticket est déjà résolu, l'affectation est verrouillée.");
+      return;
+    }
     setAssignmentMessage(null);
     setAssigningTechnicianId(technicien.id);
 
@@ -232,6 +268,30 @@ export default function TicketDetailsAdmin() {
     } finally {
       setAssigningTechnicianId(null);
     }
+  };
+
+  const getKeyCompetences = (technicien: Recommendation): string[] => {
+    if (Array.isArray(technicien.top_competences) && technicien.top_competences.length > 0) {
+      return technicien.top_competences;
+    }
+
+    const competences = technicien.competences;
+    if (!competences || typeof competences !== "object") {
+      return [];
+    }
+
+    return Object.entries(competences)
+      .filter(([name, value]) => !name.startsWith("_") && (typeof value === "number" || (typeof value === "string" && value.trim() !== "")))
+      .map(([name, value]) => {
+        if (typeof value === "number") {
+          return { name, level: value };
+        }
+        const parsed = Number(value);
+        return { name, level: Number.isFinite(parsed) ? parsed : 1 };
+      })
+      .sort((first, second) => second.level - first.level)
+      .slice(0, 5)
+      .map((item) => `${item.name} (${Math.max(1, Math.min(5, Math.round(item.level)))})`);
   };
 
   if (loading) {
@@ -272,6 +332,7 @@ export default function TicketDetailsAdmin() {
   const hasScore = ticket.score_difficulte !== null && ticket.score_difficulte !== undefined;
   const analysisDone = !!ticket.analyse_nlp && hasScore;
   const analysisLabel = analysisDone ? "Terminée" : "En cours";
+  const ticketIsResolved = String(ticket.statut || "").toUpperCase() === "RESOLU";
 
   return (
     <div className="min-h-screen w-full flex bg-white">
@@ -503,6 +564,12 @@ export default function TicketDetailsAdmin() {
                   Recommandation de profil technique
                 </h2>
 
+                {ticketIsResolved && (
+                  <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm">
+                    Ticket résolu: l'affectation est verrouillée et aucun technicien ne peut être réaffecté.
+                  </div>
+                )}
+
                 {assignmentMessage && (
                   <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 shadow-sm">
                     {assignmentMessage}
@@ -526,6 +593,7 @@ export default function TicketDetailsAdmin() {
                         technicien.score_compatibilite >= 60 ? "text-blue-700 bg-blue-100" :
                         technicien.score_compatibilite >= 40 ? "text-yellow-700 bg-yellow-100" :
                         "text-gray-700 bg-gray-100";
+                      const keyCompetences = getKeyCompetences(technicien);
 
                       return (
                         <div key={technicien.id} className="rounded-[1.5rem] border border-gray-200 p-5 hover:shadow-xl transition-all duration-200 bg-white shadow-sm hover:-translate-y-0.5">
@@ -543,11 +611,11 @@ export default function TicketDetailsAdmin() {
                             </div>
                           </div>
 
-                          {technicien.top_competences && technicien.top_competences.length > 0 && (
+                          {keyCompetences.length > 0 && (
                             <div className="mt-4">
                               <p className="text-xs font-semibold text-gray-500 mb-2">COMPÉTENCES CLÉS</p>
                               <div className="flex flex-wrap gap-2">
-                                {technicien.top_competences.map((competence, competenceIndex) => (
+                                {keyCompetences.map((competence, competenceIndex) => (
                                   <span
                                     key={competenceIndex}
                                     className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-700 px-3 py-1 text-xs font-semibold shadow-sm"
@@ -578,6 +646,11 @@ export default function TicketDetailsAdmin() {
                               <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold shadow-sm">
                                 <CheckCircle className="w-4 h-4" />
                                 Déjà affecté à ce ticket
+                              </div>
+                            ) : ticketIsResolved ? (
+                              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gray-100 text-gray-600 text-sm font-semibold shadow-sm">
+                                <Lock className="w-4 h-4" />
+                                Aucune réaffectation possible
                               </div>
                             ) : (
                               <button

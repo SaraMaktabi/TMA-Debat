@@ -268,6 +268,7 @@ export interface UserCreatePayload {
   phone: string;
   cv_texte: string;
   competences: string;
+  cvFile?: File | null;
 }
 
 export interface UserUpdatePayload {
@@ -278,6 +279,11 @@ export interface UserUpdatePayload {
   role: string;
   department: string;
   phone: string;
+}
+
+export interface CvSkillExtractionResult {
+  competences: Record<string, number>;
+  cv_texte_extrait: string;
 }
 
 export interface AuthLoginResponse {
@@ -292,7 +298,37 @@ export const userAPI = {
   },
 
   create: async (payload: UserCreatePayload): Promise<UserDto> => {
-    const response = await api.post("/api/users", payload);
+    const formData = new FormData();
+    formData.append("nom", payload.nom);
+    formData.append("prenom", payload.prenom);
+    formData.append("email", payload.email);
+    formData.append("password", payload.password);
+    formData.append("role", payload.role);
+    formData.append("department", payload.department);
+    formData.append("phone", payload.phone);
+    formData.append("cv_texte", payload.cv_texte);
+    formData.append("competences", payload.competences);
+    if (payload.cvFile) {
+      formData.append("cv_file", payload.cvFile);
+    }
+
+    const response = await api.post("/api/users", formData);
+    return response.data;
+  },
+
+  extractCvSkills: async (payload: {
+    cvFile?: File | null;
+    cv_texte?: string;
+  }): Promise<CvSkillExtractionResult> => {
+    const formData = new FormData();
+    if (payload.cvFile) {
+      formData.append("cv_file", payload.cvFile);
+    }
+    if (payload.cv_texte) {
+      formData.append("cv_texte", payload.cv_texte);
+    }
+
+    const response = await api.post("/api/users/extract-cv-skills", formData);
     return response.data;
   },
 
